@@ -65,10 +65,21 @@ client.on('data', (data) => {
 });
 
 // Handle user input
+// rl.on('line', (input) => {
+//   const message = {
+//     type: 'chat',
+//     text: input.trim()
+//   };
+//   client.write(JSON.stringify(message) + '\n');
+//   rl.prompt();
+// });
+
 rl.on('line', (input) => {
   const message = {
     type: 'chat',
-    text: input.trim()
+    sender: clientID, // or username
+    message: input.trim(),
+    timestamp: Date.now()
   };
   client.write(JSON.stringify(message) + '\n');
   rl.prompt();

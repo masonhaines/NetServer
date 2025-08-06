@@ -1,4 +1,4 @@
-/** Mason Haines*/
+
 
 const { ClientRequest } = require('http');
 const net = require('net');
@@ -51,6 +51,14 @@ const server = net.createServer((socket) => {
                 timestamp: Date.now()
                 }) + '\n');
                 break;
+
+            case 'chat':
+                socket.write(JSON.stringify({
+                type: 'chat',
+                message: `${clientID} said: ${parsedMessage.text}`,
+                timestamp: Date.now()
+                }) + '\n');
+                break;
                 
             default:
                 socket.write(JSON.stringify({
@@ -84,9 +92,14 @@ const server = net.createServer((socket) => {
     // push client to the clients array 
     // send a welcome message to the client
     clientsArray.push(socket);
-    socket.write("Hello and welcome to my server homie!\n"); 
+    // socket.write("Hello and welcome to my server homie!\n"); 
+    socket.write(JSON.stringify({ 
+        type: 'welcome',
+        message: 'Hello and welcome to my server homie!',
+        clientID
+    }) + '\n');
 
-    // Broadcast message to all clients except the sender
+    // Broadcast message to all clients except the sender---------------------------------------------------------------------------------- needs to fixewd to be json
     function broadcast(message, sender) {
         // clientSocketElement is just the parameter name for each element in the array
         clientsArray.forEach(clientSocketElement => {
@@ -100,12 +113,12 @@ const server = net.createServer((socket) => {
     broadcast(`New client connected: ${clientID}\n`, socket);
 
     // handle data received from the client
-    socket.on('data', (data) => {
-        console.log('trim Received:', data.trim());
+    // socket.on('data', (data) => {
+    //     // console.log('trim Received:', data.trim()); // this is a console log to see the data received from the client
 
-        // Broadcast the message to all other clients
-        broadcast(`${clientID}: ${data}`, socket);
-    });
+    //     // Broadcast the message to all other clients
+    //     broadcast(`${clientID}: ${data}`, socket);
+    // });
 
     // handle client disconnection
     socket.on('end', () => {
@@ -149,6 +162,13 @@ server.listen(7777, () => {
 
 process.on('SIGINT', () => {
     console.log('Shutting down server... am I dying?');
+
+
+    // remove all clients from the clients array ie from the server 
+    clientsArray.forEach(client => {
+        client.end();
+    });
+
     server.close(() => {
         console.log('Server closed/dead');
         process.exit(0);
