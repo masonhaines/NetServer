@@ -27,59 +27,65 @@
 const net = require('net');
 const readline = require('readline');
 
-// Create interface for reading from the terminal
+// Setup readline to get input from terminal
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
+  prompt: '> '
 });
 
-// Create a client connection
+// Connect to the server
 const client = net.createConnection({ port: 7777 }, () => {
-  console.log('Connected to chat server');
+  console.log('Connected to server');
   console.log('Type a message and press Enter to send');
-  
-  // Start reading user input
   rl.prompt();
 });
 
-// Set encoding
 client.setEncoding('utf8');
 
-// Handle data from server
+let buffer = '';
+
+// Handle incoming data from server
 client.on('data', (data) => {
-  // Move cursor to beginning of line and clear it
-  process.stdout.write('\r\x1b[K');
-  
-  // Print the server message
-  console.log(data.trim());
-  
-  // Re-display the prompt
-  rl.prompt();
-});
+  buffer += data.toString();
+  let boundary;
+  while ((boundary = buffer.indexOf('\n')) !== -1) {
+    const message = buffer.substring(0, boundary);
+    buffer = buffer.substring(boundary + 1);
 
-// Handle connection end
-client.on('end', () => {
-  console.log('Disconnected from server');
-  rl.close();
-  process.exit(0);
-});
+    try {
+      const parsed = JSON.parse(message);
+      console.log('\n[Server]', parsed);
+    } catch (err) {
+      console.error('\n[Error] Failed to parse JSON:', message);
+    }
 
-// Handle errors
-client.on('error', (err) => {
-  console.error('Connection error:', err);
-  rl.close();
-  process.exit(1);
+    rl.prompt();
+  }
 });
 
 // Handle user input
 rl.on('line', (input) => {
-  // Send the user input to the server
-  client.write(input);
+  const message = {
+    type: 'chat',
+    text: input.trim()
+  };
+  client.write(JSON.stringify(message) + '\n');
   rl.prompt();
 });
 
-// Close the connection when the user exits
+// Graceful shutdown
+client.on('end', () => {
+  console.log('\nDisconnected from server');
+  rl.close();
+});
+
+client.on('error', (err) => {
+  console.error('Connection error:', err);
+  rl.close();
+});
+
 rl.on('close', () => {
-  console.log('Exiting chat...');
+  console.log('Exiting...');
   client.end();
 });

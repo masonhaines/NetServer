@@ -99,22 +99,6 @@ const server = net.createServer((socket) => {
     // notify all the clients about new connection
     broadcast(`New client connected: ${clientID}\n`, socket);
 
-
-    // Simple function to handle queries
-    function handleQuery(query) {
-    if (query === 'time') {
-        return { time: new Date().toISOString() };
-    } else if (query === 'stats') {
-        return {
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        platform: process.platform
-        };
-    } else {
-        return { error: 'Unknown query' };
-    }
-    }
-
     // handle data received from the client
     socket.on('data', (data) => {
         console.log('trim Received:', data.trim());
@@ -142,6 +126,22 @@ const server = net.createServer((socket) => {
 
 
 });
+
+// Simple function to handle queries
+function handleQuery(query) {
+    if (query === 'time') {
+        return { time: new Date().toISOString() };
+        
+    } else if (query === 'stats') {
+        return {
+            uptime: process.uptime(),
+            memory: process.memoryUsage(),
+            platform: process.platform
+        };
+    } else {
+        return { error: 'Unknown query' };
+    }
+}
 
 server.listen(7777, () => {
     console.log('Im a net - Server and I am a good listener, listening on port 7777');
