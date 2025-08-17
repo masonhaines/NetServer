@@ -1,4 +1,4 @@
-
+// Mason Haines 8/05/2025
 
 const { ClientRequest } = require('http');
 const net = require('net');
@@ -7,29 +7,22 @@ const net = require('net');
 const clientsArray = [];
 
 
-
-// Create a TCP server called server
+// Create a TCP server called server and recieve data from the 'socket' ie the client 
 const server = net.createServer((socket) => {
     console.log('Client connected');
 
 
     // create a client ID based off of the sockets remote address and the remote port
-    const clientID = `${socket.remoteAddress}:${socket.remotePort}`;
-    console.log(`Client ID: ${clientID}`);
+    // let clientID = `${socket.remoteAddress}:${socket.remotePort}`;
+    const clientID = new Map(); // https://www.w3schools.com/js/js_maps.asp
+    // console.log(`Client ID: ${clientID}`);
 
     // set encoding to utf8 to handle strings instead of buffers
     // socket is the object representing the connection to the client
     socket.setEncoding('utf8');
 
     // push client to the clients array 
-    // send a welcome message to the client
     clientsArray.push(socket);
-    // socket.write("Hello and welcome to my server homie!\n"); 
-    socket.write(JSON.stringify({ 
-        type: 'welcome',
-        message: 'Hello and welcome to my server homie!',
-        clientID
-    }) + '\n');
 
 
     // Buffer for incoming data or a queue to hold incoming data
@@ -60,31 +53,58 @@ const server = net.createServer((socket) => {
                 
                 // Handle different message types
                 switch (parsedMessage.type) { // gets the type from message
-                case 'greeting': // if the type is greeting from the client reply with json that is type welcome
+                case 'updateName': // if the type is greeting from the client reply with json that is type welcome
+
+
+                    if(parsedMessage.name !== null) {
+
+                        clientID.set(socket,
+                            {username: `${parsedMessage.name}:${socket.remoteAddress}:${socket.remotePort}`}
+                        )
+                        console.log(`Client ID: ${clientID.get(socket).username}`);
+                        
+                    } else if (parsedMessage.name === '') {
+
+                        clientID.set(socket,
+                            {username: `secretName${socket.remoteAddress}:${socket.remotePort}`}
+                        )
+                        console.log(`Client ID: ${clientID.get(socket).username}`);
+
+                    } else {
+
+                        clientID.set(socket,
+                            {username: `NULLNAME${socket.remoteAddress}:${socket.remotePort}`}
+                        )
+                        console.log(`Client ID: ${clientID.get(socket).username}`);
+
+                    }
+                        
+                    
                     socket.write(JSON.stringify({
                     type: 'welcome',
-                    message: `Hello, ${parsedMessage.name}!`,
-                    timestamp: Date.now()
+                    message: `Hello, ${parsedMessage.name}! Welcome to my chat server homie!`,
+                    timestamp: Date.now(),
+                    clientID: clientID.get(socket).username
                     }) + '\n');
                     break;
                     
-                case 'query':
-                    socket.write(JSON.stringify({
-                    type: 'response',
-                    queryId: parsedMessage.queryId,
-                    result: handleQuery(parsedMessage.query),
-                    timestamp: Date.now()
-                    }) + '\n');
-                    break;
+                // case 'query':
+                //     socket.write(JSON.stringify({
+                //     type: 'response',
+                //     queryId: parsedMessage.queryId,
+                //     result: handleQuery(parsedMessage.query),
+                //     timestamp: Date.now()
+                //     }) + '\n');
+                //     break;
 
                     // 
                 case 'chat':
-                    socket.write(JSON.stringify({
+                    broadcast({
                     type: 'chat',
-                    sender: clientID,
+                    sender: clientID.get(socket).username,
                     message: parsedMessage.message,
                     timestamp: Date.now()
-                    }, socket) + '\n'); // send message to all clients on socket
+                    }, socket); // send message to all clients on socket
                     break;
                     
                 default:
@@ -94,6 +114,8 @@ const server = net.createServer((socket) => {
                     timestamp: Date.now()
                     }) + '\n');
                 }
+
+
             } catch (err) {
                 console.error('Error processing message:', err);
                 socket.write(JSON.stringify({
@@ -106,19 +128,15 @@ const server = net.createServer((socket) => {
             // Look for the next message
             boundary = pendingData.indexOf('\n');
         }
-    });
 
+
+    });
 
 
     // Broadcast message to all clients except the sender---------------------------------------------------------------------------------- needs to fixewd to be json
     function broadcast(message, sender) {
-        // clientSocketElement is just the parameter name for each element in the array
-        // clientsArray.forEach(clientSocketElement => {
-        //     if (clientSocketElement !== sender) {
-        //         clientSocketElement.write(message);
-        //     }
-        // });
 
+        // clientSocketElement is just the parameter name for each element in the array
         // Convert message to JSON and append newline
         const json = JSON.stringify(message) + '\n';
         clientsArray.forEach(clientSocketElement => {
@@ -136,13 +154,6 @@ const server = net.createServer((socket) => {
         message: `New client connected: ${clientID}`
     }, socket);
 
-    // handle data received from the client
-    // socket.on('data', (data) => {
-    //     // console.log('trim Received:', data.trim()); // this is a console log to see the data received from the client
-
-    //     // Broadcast the message to all other clients
-    //     broadcast(`${clientID}: ${data}`, socket);
-    // });
 
     // handle client disconnection
     socket.on('end', () => {
