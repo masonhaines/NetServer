@@ -79,8 +79,8 @@ void ATCPController::Connect(FString ServerHostingIP)
 		UE_LOG(LogTemp, Display, TEXT("Socket could not be created"));
 	}
 
-	FString connectionStatus = GetClientConnectionStatus();
-	GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Blue, FString::Printf(TEXT("Socket State: %s"), *connectionStatus), false, FVector2D(1.0f, 1.5f));
+	GetClientConnectionStatus(true);
+
 }
 
 void ATCPController::Disconnect()
@@ -96,7 +96,7 @@ void ATCPController::Disconnect()
 	}
 }
 
-FString ATCPController::GetClientConnectionStatus()
+FString ATCPController::GetClientConnectionStatus(bool debugMessage)
 {
 	FString connectionStatus;
 	
@@ -125,8 +125,12 @@ FString ATCPController::GetClientConnectionStatus()
 		}
 	}
 
-	UE_LOG(LogTemp, Display, TEXT("Connection Status: %s"), *connectionStatus);
-	GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Blue, FString::Printf(TEXT("Socket State: %s"), *connectionStatus));
+	if (debugMessage)
+	{
+		UE_LOG(LogTemp, Display, TEXT("Connection Status: %s"), *connectionStatus);
+		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Yellow, FString::Printf(TEXT("Socket State: %s"), *connectionStatus), false, FVector2D(2.0f, 1.5f));
+	}
+
 
 	return connectionStatus;
 }
