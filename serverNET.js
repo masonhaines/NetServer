@@ -6,6 +6,8 @@ const net = require('net');
 // Storage for connected clients
 const clientsArray = [];
 
+const portNumber = 2424;
+
 
 // Create a TCP server called server and recieve data from the 'socket' ie the client 
 const server = net.createServer((socket) => {
@@ -191,8 +193,8 @@ function handleQuery(query) {
     }
 }
 
-server.listen(7777, () => {
-    console.log('Im a net - Server and I am a good listener, listening on port 7777');
+server.listen(portNumber, () => {
+    console.log('Im a net - Server and I am a good listener, listening on port ' + portNumber);
 });
 
 process.on('SIGINT', () => {
@@ -202,11 +204,14 @@ process.on('SIGINT', () => {
     // remove all clients from the clients array ie from the server 
     clientsArray.forEach(client => {
         client.end();
+        console.log('client removed')
     });
 
     server.close(() => {
         console.log('Server closed/dead');
         process.exit(0);
     });
+
+    console.log('I didnt want to close ')
 });
 
