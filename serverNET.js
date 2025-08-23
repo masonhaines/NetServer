@@ -213,5 +213,6 @@ process.on('SIGINT', () => {
     });
 
     console.log('I didnt want to close ')
+    return;
 });
 

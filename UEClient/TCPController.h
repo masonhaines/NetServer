@@ -29,7 +29,7 @@ public:
 	void Disconnect();
 
 	UFUNCTION(BlueprintCallable)
-	void GetClientConnectionStatus();
+	FString GetClientConnectionStatus();
 	
 	UFUNCTION(BlueprintCallable)
 	void sendMessage(FString Message);

@@ -61,25 +61,34 @@ void ATCPController::Connect(FString ServerHostingIP)
 	InternetAddress->SetIp(Endpoint.Address.Value);
 	InternetAddress->SetPort(Endpoint.Port);
 
-	// Attempt connection to current client socket to the remotely hosted server
+	
+	// Places the socket into a state to listen for incoming connections.
+	// Connects a socket to a network byte ordered address.
+	// Params:
+	// MaxBacklog — The number of connections to queue before refusing them.
+	// Returns:
+	// true if successful, false otherwise.
 	if (ClientSocket->Connect(*InternetAddress))
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Green, "Connected to server", false, FVector2D(1.5f, 1.5f) );
-		UE_LOG(LogTemp, Display, TEXT("Connected to server"));
+		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Green, "Socket Created", false, FVector2D(1.0f, 1.0f) );
+		UE_LOG(LogTemp, Display, TEXT("Socket Created"));
 		CurrentAddress = InternetAddress;
 	} else
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Red, "Could NOT connect to server, Connect Failed", false, FVector2D(1.5f, 1.5f));
-		UE_LOG(LogTemp, Display, TEXT("Could NOT connect to server, Connect Failed"));
+		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Red, "Socket could not be created", false, FVector2D(1.0f, 1.0f));
+		UE_LOG(LogTemp, Display, TEXT("Socket could not be created"));
 	}
+
+	FString connectionStatus = GetClientConnectionStatus();
+	GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Blue, FString::Printf(TEXT("Socket State: %s"), *connectionStatus), false, FVector2D(1.0f, 1.5f));
 }
 
 void ATCPController::Disconnect()
 {
 	if (ClientSocket != nullptr)
 	{
-		UE_LOG(LogTemp, Display, TEXT("Disconnected from server"));
-		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Red, "Disconnected from server", false, FVector2D(1.5f, 1.5f));
+		UE_LOG(LogTemp, Display, TEXT("Socket closed"));
+		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Red, "Socket closed", false, FVector2D(1.5f, 1.5f));
 		ClientSocket->Close();
 		// Get the singleton socket subsystem for the given named subsystem, then Cleans up a socket class
 		ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(ClientSocket); 
@@ -87,7 +96,7 @@ void ATCPController::Disconnect()
 	}
 }
 
-void ATCPController::GetClientConnectionStatus()
+FString ATCPController::GetClientConnectionStatus()
 {
 	FString connectionStatus;
 	
@@ -102,7 +111,7 @@ void ATCPController::GetClientConnectionStatus()
 		switch(ClientSocket->GetConnectionState()) // Determines the connection state of the socket.
 		{
 		case SCS_NotConnected:
-			connectionStatus = TEXT("Connected");
+			connectionStatus = TEXT("Not Connected");
 			break;
 		case SCS_Connected:
 			connectionStatus = TEXT("Connected");
@@ -119,6 +128,7 @@ void ATCPController::GetClientConnectionStatus()
 	UE_LOG(LogTemp, Display, TEXT("Connection Status: %s"), *connectionStatus);
 	GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Blue, FString::Printf(TEXT("Socket State: %s"), *connectionStatus));
 
+	return connectionStatus;
 }
 
 void ATCPController::sendMessage(FString Message)
@@ -130,7 +140,44 @@ void ATCPController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	// GetClientConnectionStatus(); // for testing mainly
 	
+	// if check is not fully necessary unless the build target is a client
+	// if (GetNetMode() == NM_Client) // Get the network mode (dedicated server, client, standalone, etc) for this actor.
+	// {
+	
+		TArray<uint8> Bytes;
+
+		if (ClientSocket)
+		{
+			if (ClientSocket->GetConnectionState() == SCS_Connected)
+			{
+				uint32 pendingData = 0;
+				if(ClientSocket->HasPendingData(pendingData)) // Queries the socket to determine if there is pending data on the queue and saves it in variable ref
+				{
+					Bytes.SetNum(pendingData);
+
+					int32 bytesRead = 0;
+					// Reads a chunk of data from a connected socket
+					// A return value of 'true' does not necessarily mean that data was returned.
+					// Callers must check the 'BytesRead' parameter for the actual amount of data returned.
+					// A value of zero indicates that there was no data available for reading.
+					if(ClientSocket->Recv(
+						Bytes.GetData(), // received data is written into the Bytes variable
+						pendingData,
+						bytesRead))
+					{
+						FString serverMessage = "";
+						FMemoryReader MemoryReader(Bytes);
+
+						MemoryReader << serverMessage; // left shift for serialization
+
+						GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Blue, FString::Printf(TEXT("Message from server: %s"), *serverMessage));
+					}
+				}
+			}
+		}
+	// }
 }
 
 
