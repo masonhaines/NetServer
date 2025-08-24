@@ -12,7 +12,7 @@ const readLine = readline.createInterface({
 });
 
 // Connect to the server with the new client object 
-const client = net.createConnection({ port: 7777 }, () => {
+const client = net.createConnection({ port: 2424 }, () => {
 
   console.log('Connected to server');
   console.log('Type a message and press Enter to send');

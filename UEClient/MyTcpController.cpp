@@ -1,19 +1,27 @@
-// #include "E:\Unreal Projects\TCP_DevEnv\MultiplayerShooter\Intermediate\Build\Win64\x64\MultiplayerShooterEditor\Development\UnrealEd\SharedPCH.UnrealEd.Project.ValApi.ValExpApi.Cpp20.InclOrderUnreal5_3.h"
-#include "TCPController.h"
+// Fill out your copyright notice in the Description page of Project Settings.
+
+
+#include "MyTcpController.h"
 #include "Engine/Engine.h"
+// #include "Serialization/MemoryReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonReader.h"
 
-
-ATCPController::ATCPController()
+// Sets default values
+AMyTcpController::AMyTcpController()
 {
-	CurrentAddress = nullptr;
-	ClientSocket = nullptr; // init Client socket pointer to nullptr
-	PrimaryActorTick.bCanEverTick = true;
+	ServerMessage = "";
+	ClientMessage = "";
+ 	CurrentAddress = nullptr;
+    ClientSocket = nullptr; // init Client socket pointer to nullptr
+ 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+    PrimaryActorTick.bCanEverTick = true;
 }
 
-void ATCPController::BeginPlay()
+// Called when the game starts or when spawned
+void AMyTcpController::BeginPlay()
 {
 	Super::BeginPlay();
-
 	// this is if I would like to create a server instance of the game and 
 	// if(GetNetMode() == NM_DedicatedServer) // runs only if a dedicated server build target
 	// {
@@ -28,6 +36,7 @@ void ATCPController::BeginPlay()
 	// }
 }
 
+
 // delegate callback for newly connected clients when Unreal itself is the TCP server.
 // bool ATCPController::ClientConnected(FSocket* Socket, const FIPv4Endpoint& FIPV4Endpoint)
 // {
@@ -37,8 +46,23 @@ void ATCPController::BeginPlay()
 // 	return true;
 // }
 
-void ATCPController::Connect(FString ServerHostingIP)
+
+void AMyTcpController::Connect(FString ServerHostingIP)
 {
+	// check if socket is already open so there are not a million open sockets loose for connection
+	if(ClientSocket)
+	{
+		if(ClientSocket->GetConnectionState() == SCS_Connected)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Green, "Socket already exists", false, FVector2D(1.0f, 1.0f) );
+			UE_LOG(LogTemp, Display, TEXT("Socket already exists"));
+			return;
+		}
+		// if socket already created and socket is not connected, disconnect and make a new one. no harm no foul
+		Disconnect();
+	}
+
+	
 	
 	FIPv4Address IpAddress; //
 	FIPv4Address::Parse(ServerHostingIP, IpAddress); // Converts a string to an IPv4 address. So taking the server ip added inside of BP and making it a IPv4 address
@@ -79,11 +103,11 @@ void ATCPController::Connect(FString ServerHostingIP)
 		UE_LOG(LogTemp, Display, TEXT("Socket could not be created"));
 	}
 
-	GetClientConnectionStatus(true);
+	GetClientConnectionStatus();
 
 }
 
-void ATCPController::Disconnect()
+void AMyTcpController::Disconnect()
 {
 	if (ClientSocket != nullptr)
 	{
@@ -96,7 +120,7 @@ void ATCPController::Disconnect()
 	}
 }
 
-FString ATCPController::GetClientConnectionStatus(bool debugMessage)
+void AMyTcpController::GetClientConnectionStatus()
 {
 	FString connectionStatus;
 	
@@ -124,27 +148,21 @@ FString ATCPController::GetClientConnectionStatus(bool debugMessage)
 			break;
 		}
 	}
-
-	if (debugMessage)
-	{
-		UE_LOG(LogTemp, Display, TEXT("Connection Status: %s"), *connectionStatus);
-		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Yellow, FString::Printf(TEXT("Socket State: %s"), *connectionStatus), false, FVector2D(2.0f, 1.5f));
-	}
-
-
-	return connectionStatus;
+	
+	UE_LOG(LogTemp, Display, TEXT("Connection Status: %s"), *connectionStatus);
+	GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Yellow, FString::Printf(TEXT("Socket State: %s"), *connectionStatus), false, FVector2D(2.0f, 1.5f));
 }
 
-void ATCPController::sendMessage(FString Message)
+void AMyTcpController::sendMessage(FString Message)
 {
 	
 }
 
-void ATCPController::Tick(float DeltaTime)
+// Called every frame
+void AMyTcpController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	// GetClientConnectionStatus(); // for testing mainly
+    // GetClientConnectionStatus(); // for testing mainly
 	
 	// if check is not fully necessary unless the build target is a client
 	// if (GetNetMode() == NM_Client) // Get the network mode (dedicated server, client, standalone, etc) for this actor.
@@ -156,27 +174,47 @@ void ATCPController::Tick(float DeltaTime)
 		{
 			if (ClientSocket->GetConnectionState() == SCS_Connected)
 			{
-				uint32 pendingData = 0;
-				if(ClientSocket->HasPendingData(pendingData)) // Queries the socket to determine if there is pending data on the queue and saves it in variable ref
+				uint32 bufferSize = 0;
+				if(ClientSocket->HasPendingData(bufferSize)) // Queries the socket to determine if there is pending data on the queue and saves it in variable ref
 				{
-					Bytes.SetNum(pendingData);
+					Bytes.SetNumUninitialized(bufferSize);
 
 					int32 bytesRead = 0;
 					// Reads a chunk of data from a connected socket
 					// A return value of 'true' does not necessarily mean that data was returned.
-					// Callers must check the 'BytesRead' parameter for the actual amount of data returned.
+					// Callers must check the 'bytesRead' parameter for the actual amount of data returned.
 					// A value of zero indicates that there was no data available for reading.
 					if(ClientSocket->Recv(
 						Bytes.GetData(), // received data is written into the Bytes variable
-						pendingData,
+						bufferSize,
 						bytesRead))
 					{
 						FString serverMessage = "";
-						FMemoryReader MemoryReader(Bytes);
 
-						MemoryReader << serverMessage; // left shift for serialization
+						// convert UTF8 to TCHAR
+						serverMessage = FString(StringCast<TCHAR>(reinterpret_cast<const char*>(Bytes.GetData()), bytesRead).Get());
 
-						GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Blue, FString::Printf(TEXT("Message from server: %s"), *serverMessage));
+						TSharedPtr<FJsonObject> OutObject;
+						const auto Reader = TJsonReaderFactory<>::Create(serverMessage);
+						// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Json/Serialization/FJsonSerializer/Deserialize/3
+						if (FJsonSerializer::Deserialize(Reader, OutObject)) // parse the json string received from the server
+						{
+							const FString JsonMessage = OutObject->GetStringField(TEXT("message"));
+							const FString JsonType = OutObject->GetStringField(TEXT("type"));
+							const FString JsonSender = OutObject->GetStringField(TEXT("sender"));
+
+							if (JsonType == "serverMessage")
+							{
+								
+								GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Blue, FString::Printf(TEXT("Message from server: %s"), *JsonMessage));
+								UE_LOG(LogTemp, Display, TEXT("Connection Status: %s"), *serverMessage);
+							}
+							else if (JsonType == "chat")
+							{
+								ClientMessage = JsonMessage;
+							}
+						}
+
 					}
 				}
 			}
@@ -184,4 +222,10 @@ void ATCPController::Tick(float DeltaTime)
 	// }
 }
 
-
+// has pending data -> allocate buffer -> receive -> convert to f string
+// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Json/Serialization?utm_source=chatgpt.com
+// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Json/Serialization/TJsonReader
+// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Json/Serialization/TJsonWriter
+// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Json/Serialization/FJsonSerializer
+// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/JsonUtilities/FJsonObjectConverter?utm_source=chatgpt.com
+// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Sockets/FSocket/Recv?utm_source=chatgpt.com

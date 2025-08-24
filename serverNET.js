@@ -31,6 +31,14 @@ const server = net.createServer((socket) => {
     // This is used to handle cases where data arrives in chunks
     // and we need to wait for a complete message before processing it
     let pendingData = '';
+
+
+    socket.write(JSON.stringify({
+        type: 'serverMessage', 
+        message: 'Hello from the server',
+        timestamp: Date.now()
+
+    }) + '\n');
     
     // Handle data
     socket.on('data', (data) => {
@@ -83,7 +91,7 @@ const server = net.createServer((socket) => {
                         
                     
                     socket.write(JSON.stringify({
-                    type: 'welcome',
+                    type: 'serverMessage',
                     message: `Hello, ${parsedMessage.name}! Welcome to my chat server homie!`,
                     timestamp: Date.now(),
                     clientID: clientID.get(socket).username
