@@ -155,6 +155,28 @@ void AMyTcpController::GetClientConnectionStatus()
 
 void AMyTcpController::sendMessage(FString Message)
 {
+	// // handle out going data to the server
+	// readLine.on('line', (input) => {
+	// const message = {
+	// 	type: 'chat',
+	// 	sender: clientID, // or username
+	// 	message: input.trim(),
+	// 	timestamp: Date.now()
+	// };
+
+	// process.stdout.moveCursor(0, -1); // Move cursor up one line 
+
+	// client.write(JSON.stringify(message) + '\n'); // send message to the server ie to the other clients 
+	
+	// console.log(`> [${clientID}] ${message.message}`);
+	// readLine.setPrompt(`> `);
+	// readLine.prompt();
+	// });
+
+	// get input from user ie FString Message
+	// change to JS object notation
+	// Serialize data out to server
+
 	
 }
 
@@ -170,55 +192,57 @@ void AMyTcpController::Tick(float DeltaTime)
 	
 		TArray<uint8> Bytes;
 
-		if (ClientSocket)
+		if (ClientSocket && ClientSocket->GetConnectionState() == SCS_Connected)
 		{
-			if (ClientSocket->GetConnectionState() == SCS_Connected)
+			uint32 bufferSize = 0;
+			if(ClientSocket->HasPendingData(bufferSize)) // Queries the socket to determine if there is pending data on the queue and saves it in variable ref
 			{
-				uint32 bufferSize = 0;
-				if(ClientSocket->HasPendingData(bufferSize)) // Queries the socket to determine if there is pending data on the queue and saves it in variable ref
+				Bytes.SetNumUninitialized(bufferSize);
+
+				int32 bytesRead = 0;
+				// Reads a chunk of data from a connected socket
+				// A return value of 'true' does not necessarily mean that data was returned.
+				// Callers must check the 'bytesRead' parameter for the actual amount of data returned.
+				// A value of zero indicates that there was no data available for reading.
+				if(ClientSocket->Recv(
+					Bytes.GetData(), // received data is written into the Bytes variable
+					bufferSize,
+					bytesRead))
 				{
-					Bytes.SetNumUninitialized(bufferSize);
+					FString serverMessage = "";
 
-					int32 bytesRead = 0;
-					// Reads a chunk of data from a connected socket
-					// A return value of 'true' does not necessarily mean that data was returned.
-					// Callers must check the 'bytesRead' parameter for the actual amount of data returned.
-					// A value of zero indicates that there was no data available for reading.
-					if(ClientSocket->Recv(
-						Bytes.GetData(), // received data is written into the Bytes variable
-						bufferSize,
-						bytesRead))
+					// convert UTF8 to TCHAR
+					serverMessage = FString(StringCast<TCHAR>(reinterpret_cast<const char*>(Bytes.GetData()), bytesRead).Get());
+
+					TSharedPtr<FJsonObject> OutObject;
+					const auto Reader = TJsonReaderFactory<>::Create(serverMessage); // this may need to be passed  by reference 
+					// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Json/Serialization/FJsonSerializer/Deserialize/3
+					if (FJsonSerializer::Deserialize(Reader, OutObject)) // parse the json string received from the server
 					{
-						FString serverMessage = "";
+						const FString JsonMessage = OutObject->GetStringField(TEXT("message"));
+						const FString JsonType = OutObject->GetStringField(TEXT("type"));
+						const FString JsonSender = OutObject->GetStringField(TEXT("sender"));
 
-						// convert UTF8 to TCHAR
-						serverMessage = FString(StringCast<TCHAR>(reinterpret_cast<const char*>(Bytes.GetData()), bytesRead).Get());
-
-						TSharedPtr<FJsonObject> OutObject;
-						const auto Reader = TJsonReaderFactory<>::Create(serverMessage);
-						// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Json/Serialization/FJsonSerializer/Deserialize/3
-						if (FJsonSerializer::Deserialize(Reader, OutObject)) // parse the json string received from the server
+						if (JsonType == "serverMessage")
 						{
-							const FString JsonMessage = OutObject->GetStringField(TEXT("message"));
-							const FString JsonType = OutObject->GetStringField(TEXT("type"));
-							const FString JsonSender = OutObject->GetStringField(TEXT("sender"));
-
-							if (JsonType == "serverMessage")
-							{
-								
-								GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Blue, FString::Printf(TEXT("Message from server: %s"), *JsonMessage));
-								UE_LOG(LogTemp, Display, TEXT("Connection Status: %s"), *serverMessage);
-							}
-							else if (JsonType == "chat")
-							{
-								ClientMessage = JsonMessage;
-							}
+							
+							GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Blue, FString::Printf(TEXT("Message from server: %s"), *JsonMessage));
+							UE_LOG(LogTemp, Display, TEXT("Connection Status: %s"), *serverMessage);
+						}
+						else if (JsonType == "chat")
+						{
+							ClientMessage = JsonMessage;
+						}
+						else if (JsonType == "sender")
+						{
+							sender = JsonSender;
 						}
 
 					}
 				}
 			}
-		}
+			
+		}	
 	// }
 }
 
