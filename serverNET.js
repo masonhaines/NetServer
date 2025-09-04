@@ -6,7 +6,7 @@ const net = require('net');
 // Storage for connected clients
 const clientsArray = [];
 
-const portNumber = 2424;
+const portNumber = 7777;
 
 
 // Create a TCP server called server and recieve data from the 'socket' ie the client 

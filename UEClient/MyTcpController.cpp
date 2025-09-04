@@ -6,6 +6,8 @@
 // #include "Serialization/MemoryReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonReader.h"
+#include "Interfaces/IPv4/IPv4Endpoint.h"
+#include "SocketTypes.h"
 
 // Sets default values
 AMyTcpController::AMyTcpController()
@@ -50,23 +52,12 @@ void AMyTcpController::BeginPlay()
 void AMyTcpController::Connect(FString ServerHostingIP)
 {
 	// check if socket is already open so there are not a million open sockets loose for connection
-	if(ClientSocket)
-	{
-		if(ClientSocket->GetConnectionState() == SCS_Connected)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Green, "Socket already exists", false, FVector2D(1.0f, 1.0f) );
-			UE_LOG(LogTemp, Display, TEXT("Socket already exists"));
-			return;
-		}
-		// if socket already created and socket is not connected, disconnect and make a new one. no harm no foul
-		Disconnect();
-	}
-
-	
+	// if socket already created and socket is not connected, disconnect and make a new one. no harm no foul
+	Disconnect();
 	
 	FIPv4Address IpAddress; //
 	FIPv4Address::Parse(ServerHostingIP, IpAddress); // Converts a string to an IPv4 address. So taking the server ip added inside of BP and making it a IPv4 address
-	FIPv4Endpoint Endpoint(IpAddress, (uint16)2424); // create end point that will connect at the following port number 
+	FIPv4Endpoint Endpoint(IpAddress, (uint16)7777); // create end point that will connect at the following port number. Creates and initializes a new IPv4 endpoint with the specified NetID and port.
 
 	// Build a TCP socket for the client connection.
 	// - Name: "Client Socket"
@@ -76,10 +67,15 @@ void AMyTcpController::Connect(FString ServerHostingIP)
 	ClientSocket = FTcpSocketBuilder(TEXT("Client Socket"))
 	.AsReusable()
 	.WithReceiveBufferSize(BufferSize)
-	.AsNonBlocking();
+	// .AsBlocking(); // returns after connection has been verified. but if the server never responds it will sit on this forever....
+	.AsNonBlocking(); // returns immediately and is meant for non async 
 	ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM); // retrieve windows socket
+	// const ESocketErrors Err = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLastErrorCode(); // was recommended but not quite sure where the error codes come from and not useful enough documentation to currently use 
+	
 
+	// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Sockets/ISocketSubsystem
 	TSharedPtr<FInternetAddr> InternetAddress = SocketSubsystem->CreateInternetAddr(); // create internet address object to hold the servers IP and port 
+	// TSharedPtr<FInternetAddr> InternetAddress = SocketSubsystem->GetHostByName
 
 	// give internet address the IP and port values 
 	InternetAddress->SetIp(Endpoint.Address.Value);
@@ -92,19 +88,27 @@ void AMyTcpController::Connect(FString ServerHostingIP)
 	// MaxBacklog — The number of connections to queue before refusing them.
 	// Returns:
 	// true if successful, false otherwise.
-	if (ClientSocket->Connect(*InternetAddress))
+	ClientSocket->Connect(*InternetAddress);
+	
+	GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Green, "Socket Created", false, FVector2D(1.0f, 1.0f) );
+	UE_LOG(LogTemp, Display, TEXT("Socket Created"));
+
+	if(ClientSocket->Wait(ESocketWaitConditions::WaitForWrite, FTimespan::FromSeconds(4)))
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Green, "Socket Created", false, FVector2D(1.0f, 1.0f) );
-		UE_LOG(LogTemp, Display, TEXT("Socket Created"));
-		CurrentAddress = InternetAddress;
-	} else
+		ClientSocket->SetNoDelay(true);
+		
+		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Green, "Socket Connected after the wait for write", false, FVector2D(1.0f, 1.0f) );
+		GetClientConnectionStatus();
+	}else
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Red, "Socket could not be created", false, FVector2D(1.0f, 1.0f));
-		UE_LOG(LogTemp, Display, TEXT("Socket could not be created"));
+		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Green, "Socket Connection timed out", false, FVector2D(1.0f, 1.0f) );
+		Disconnect();
+		GetClientConnectionStatus();
 	}
+	// CurrentAddress = InternetAddress;
+	
 
-	GetClientConnectionStatus();
-
+	// GetClientConnectionStatus();
 }
 
 void AMyTcpController::Disconnect()
@@ -155,28 +159,6 @@ void AMyTcpController::GetClientConnectionStatus()
 
 void AMyTcpController::sendMessage(FString Message)
 {
-	// // handle out going data to the server
-	// readLine.on('line', (input) => {
-	// const message = {
-	// 	type: 'chat',
-	// 	sender: clientID, // or username
-	// 	message: input.trim(),
-	// 	timestamp: Date.now()
-	// };
-
-	// process.stdout.moveCursor(0, -1); // Move cursor up one line 
-
-	// client.write(JSON.stringify(message) + '\n'); // send message to the server ie to the other clients 
-	
-	// console.log(`> [${clientID}] ${message.message}`);
-	// readLine.setPrompt(`> `);
-	// readLine.prompt();
-	// });
-
-	// get input from user ie FString Message
-	// change to JS object notation
-	// Serialize data out to server
-
 	
 }
 
@@ -192,57 +174,55 @@ void AMyTcpController::Tick(float DeltaTime)
 	
 		TArray<uint8> Bytes;
 
-		if (ClientSocket && ClientSocket->GetConnectionState() == SCS_Connected)
+		if (ClientSocket)
 		{
-			uint32 bufferSize = 0;
-			if(ClientSocket->HasPendingData(bufferSize)) // Queries the socket to determine if there is pending data on the queue and saves it in variable ref
+			if (ClientSocket->GetConnectionState() == SCS_Connected)
 			{
-				Bytes.SetNumUninitialized(bufferSize);
-
-				int32 bytesRead = 0;
-				// Reads a chunk of data from a connected socket
-				// A return value of 'true' does not necessarily mean that data was returned.
-				// Callers must check the 'bytesRead' parameter for the actual amount of data returned.
-				// A value of zero indicates that there was no data available for reading.
-				if(ClientSocket->Recv(
-					Bytes.GetData(), // received data is written into the Bytes variable
-					bufferSize,
-					bytesRead))
+				uint32 bufferSize = 0;
+				if(ClientSocket->HasPendingData(bufferSize)) // Queries the socket to determine if there is pending data on the queue and saves it in variable ref
 				{
-					FString serverMessage = "";
+					Bytes.SetNumUninitialized(bufferSize);
 
-					// convert UTF8 to TCHAR
-					serverMessage = FString(StringCast<TCHAR>(reinterpret_cast<const char*>(Bytes.GetData()), bytesRead).Get());
-
-					TSharedPtr<FJsonObject> OutObject;
-					const auto Reader = TJsonReaderFactory<>::Create(serverMessage); // this may need to be passed  by reference 
-					// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Json/Serialization/FJsonSerializer/Deserialize/3
-					if (FJsonSerializer::Deserialize(Reader, OutObject)) // parse the json string received from the server
+					int32 bytesRead = 0;
+					// Reads a chunk of data from a connected socket
+					// A return value of 'true' does not necessarily mean that data was returned.
+					// Callers must check the 'bytesRead' parameter for the actual amount of data returned.
+					// A value of zero indicates that there was no data available for reading.
+					if(ClientSocket->Recv(
+						Bytes.GetData(), // received data is written into the Bytes variable
+						bufferSize,
+						bytesRead))
 					{
-						const FString JsonMessage = OutObject->GetStringField(TEXT("message"));
-						const FString JsonType = OutObject->GetStringField(TEXT("type"));
-						const FString JsonSender = OutObject->GetStringField(TEXT("sender"));
+						FString serverMessage = "";
 
-						if (JsonType == "serverMessage")
+						// convert UTF8 to TCHAR
+						serverMessage = FString(StringCast<TCHAR>(reinterpret_cast<const char*>(Bytes.GetData()), bytesRead).Get());
+
+						TSharedPtr<FJsonObject> OutObject;
+						const auto Reader = TJsonReaderFactory<>::Create(serverMessage);
+						// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Json/Serialization/FJsonSerializer/Deserialize/3
+						if (FJsonSerializer::Deserialize(Reader, OutObject)) // parse the json string received from the server
 						{
-							
-							GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Blue, FString::Printf(TEXT("Message from server: %s"), *JsonMessage));
-							UE_LOG(LogTemp, Display, TEXT("Connection Status: %s"), *serverMessage);
-						}
-						else if (JsonType == "chat")
-						{
-							ClientMessage = JsonMessage;
-						}
-						else if (JsonType == "sender")
-						{
-							sender = JsonSender;
+							const FString JsonMessage = OutObject->GetStringField(TEXT("message"));
+							const FString JsonType = OutObject->GetStringField(TEXT("type"));
+							const FString JsonSender = OutObject->GetStringField(TEXT("sender"));
+
+							if (JsonType == "serverMessage")
+							{
+								
+								GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Blue, FString::Printf(TEXT("Message from server: %s"), *JsonMessage));
+								UE_LOG(LogTemp, Display, TEXT("Connection Status: %s"), *serverMessage);
+							}
+							else if (JsonType == "chat")
+							{
+								ClientMessage = JsonMessage;
+							}
 						}
 
 					}
 				}
 			}
-			
-		}	
+		}
 	// }
 }
 
