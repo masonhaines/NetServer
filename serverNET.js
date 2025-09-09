@@ -108,6 +108,18 @@ const server = net.createServer((socket) => {
                 //     break;
 
                     // 
+                // case 'chat': {
+                // const info = clientID.get(socket);
+                // const senderName = info?.username ?? `${socket.remoteAddress}:${socket.remotePort}`;
+                // broadcast({
+                //     type: 'chat',
+                //     sender: senderName,
+                //     message: parsedMessage.message,
+                //     timestamp: Date.now()
+                // }, socket);
+                // break;
+                // }
+
                 case 'chat':
                     broadcast({
                     type: 'chat',
@@ -115,7 +127,7 @@ const server = net.createServer((socket) => {
                     message: parsedMessage.message,
                     timestamp: Date.now()
                     }, socket); // send message to all clients on socket
-                    break;
+                break;
                     
                 default:
                     socket.write(JSON.stringify({

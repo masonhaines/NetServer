@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Common/TcpListener.h"
+#include "Containers/Queue.h"
 #include "GameFramework/Actor.h"
 #include "MyTcpController.generated.h"
 
@@ -53,6 +54,9 @@ public:	// variables
     FSocket* ClientSocket; // Socket pointer acts solely on the client, used for receiving data
     const int32 BufferSize = 4096; // Size of the pending data being sent over the client socket
     TSharedPtr<FInternetAddr> CurrentAddress;
+	FString PartialJsonMessage;
+	TQueue<FString, EQueueMode::Mpsc> MessageQueue;
+	TArray<uint8> PartialJsonBytes;
     // TUniquePtr<FTcpListener> ServerListener; // this runs asynchronously, is only needed if this is going to be used as a listening server and not a lonely client
     
  

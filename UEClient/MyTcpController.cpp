@@ -88,7 +88,7 @@ void AMyTcpController::Connect(FString ServerHostingIP)
 	// MaxBacklog — The number of connections to queue before refusing them.
 	// Returns:
 	// true if successful, false otherwise.
-	ClientSocket->Connect(*InternetAddress);
+	ClientSocket->Connect(*InternetAddress); // this returns true, but there is a possibility to receive the errors on the socket
 	
 	GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Green, "Socket Created", false, FVector2D(1.0f, 1.0f) );
 	UE_LOG(LogTemp, Display, TEXT("Socket Created"));
@@ -107,8 +107,6 @@ void AMyTcpController::Connect(FString ServerHostingIP)
 	}
 	// CurrentAddress = InternetAddress;
 	
-
-	// GetClientConnectionStatus();
 }
 
 void AMyTcpController::Disconnect()
@@ -168,62 +166,175 @@ void AMyTcpController::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
     // GetClientConnectionStatus(); // for testing mainly
 	
-	// if check is not fully necessary unless the build target is a client
-	// if (GetNetMode() == NM_Client) // Get the network mode (dedicated server, client, standalone, etc) for this actor.
-	// {
+	if (!ClientSocket || ClientSocket->GetConnectionState() != SCS_Connected)
+	{
+		return;
+	}
 	
+	uint32 bufferSize = 0;
+	while(ClientSocket->HasPendingData(bufferSize)) // Queries the socket to determine if there is pending data on the queue and saves it in variable ref
+	{
 		TArray<uint8> Bytes;
+		Bytes.SetNumUninitialized(bufferSize);
 
-		if (ClientSocket)
+		int32 bytesRead = 0;
+		// Reads a chunk of data from a connected socket
+		// A return value of 'true' does not necessarily mean that data was returned.
+		// Callers must check the 'bytesRead' parameter for the actual amount of data returned.
+		// A value of zero indicates that there was no data available for reading.
+		if(ClientSocket->Recv(
+			Bytes.GetData(), // received data is written into the Bytes variable
+			bufferSize,
+			bytesRead))
 		{
-			if (ClientSocket->GetConnectionState() == SCS_Connected)
+
+			// convert UTF8 to TCHAR
+			// FString RawTCPChunk = FString(StringCast<TCHAR>(reinterpret_cast<const char*>(Bytes.GetData()), bytesRead).Get()); // this is where the data is actually piling up for use 
+			// PartialJsonMessage += RawTCPChunk;
+			PartialJsonBytes.Append(Bytes.GetData(), bytesRead);
+
+			while(true)
 			{
-				uint32 bufferSize = 0;
-				if(ClientSocket->HasPendingData(bufferSize)) // Queries the socket to determine if there is pending data on the queue and saves it in variable ref
+				int32 IndexOfNewLine = -1;
+				for (int32 i = 0; i < PartialJsonBytes.Num(); i++)
 				{
-					Bytes.SetNumUninitialized(bufferSize);
-
-					int32 bytesRead = 0;
-					// Reads a chunk of data from a connected socket
-					// A return value of 'true' does not necessarily mean that data was returned.
-					// Callers must check the 'bytesRead' parameter for the actual amount of data returned.
-					// A value of zero indicates that there was no data available for reading.
-					if(ClientSocket->Recv(
-						Bytes.GetData(), // received data is written into the Bytes variable
-						bufferSize,
-						bytesRead))
+					if(PartialJsonBytes[i] == '\n')
 					{
-						FString serverMessage = "";
-
-						// convert UTF8 to TCHAR
-						serverMessage = FString(StringCast<TCHAR>(reinterpret_cast<const char*>(Bytes.GetData()), bytesRead).Get());
-
-						TSharedPtr<FJsonObject> OutObject;
-						const auto Reader = TJsonReaderFactory<>::Create(serverMessage);
-						// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Json/Serialization/FJsonSerializer/Deserialize/3
-						if (FJsonSerializer::Deserialize(Reader, OutObject)) // parse the json string received from the server
-						{
-							const FString JsonMessage = OutObject->GetStringField(TEXT("message"));
-							const FString JsonType = OutObject->GetStringField(TEXT("type"));
-							const FString JsonSender = OutObject->GetStringField(TEXT("sender"));
-
-							if (JsonType == "serverMessage")
-							{
-								
-								GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Blue, FString::Printf(TEXT("Message from server: %s"), *JsonMessage));
-								UE_LOG(LogTemp, Display, TEXT("Connection Status: %s"), *serverMessage);
-							}
-							else if (JsonType == "chat")
-							{
-								ClientMessage = JsonMessage;
-							}
-						}
-
+						IndexOfNewLine = i;
+						break;
 					}
+				}
+				if (IndexOfNewLine == -1)
+				{
+					break;
+				}
+				
+				FString CompleteJsonBytes = FString(StringCast<TCHAR>(reinterpret_cast<const UTF8CHAR*>(PartialJsonBytes.GetData()), IndexOfNewLine).Get());
+
+				PartialJsonBytes.RemoveAt(0, IndexOfNewLine + 1);
+				if (!CompleteJsonBytes.IsEmpty())
+				{
+					MessageQueue.Enqueue(FString(CompleteJsonBytes));
+				}
+			}
+
+			
+			
+			// // create a way for a delimiter to separate the multiple json objects being sent 
+			// int32 indexOfFoundNewLine;
+			// while (PartialJsonMessage.FindChar('\n', indexOfFoundNewLine)) // will not run if false, there is no '\n' found 
+			// {
+			// 	GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Blue, FString::Printf(TEXT("I made it inside of the first while loop ")));
+			//
+			// 	FString completePartialJsonString = PartialJsonMessage.Left(indexOfFoundNewLine);
+			//
+			// 	// if (!completePartialJsonString.StartsWith("{"))
+			// 	// {
+			// 	// 	int32 pos;
+			// 	// 	if (completePartialJsonString.FindChar('{', pos))
+			// 	// 	{
+			// 	// 		completePartialJsonString = completePartialJsonString.RightChop(pos);
+			// 	// 	}
+			// 	// }
+			// 	
+			// 	// completePartialJsonString.TrimEndInline(); // remove ending \ or whitespace that is lingering
+			// 	if (completePartialJsonString.EndsWith("\r"))
+			// 	{
+			// 		completePartialJsonString.RemoveAt(completePartialJsonString.Len() - 1);
+			// 	}
+			//
+			// 	if (!completePartialJsonString.IsEmpty())
+			// 	{
+			// 		TSharedPtr<FJsonObject> TestForValidJsonObject;
+			// 		const auto TestReading = TJsonReaderFactory<>::Create(completePartialJsonString);
+			//
+			// 		if(FJsonSerializer::Deserialize(TestReading, TestForValidJsonObject))
+			// 		{
+			// 			MessageQueue.Enqueue(completePartialJsonString);// ----------------------make sure all packets have arrived, hopefully, maybe?
+			// 			PartialJsonMessage.RemoveAt(0, indexOfFoundNewLine + 1);
+			//
+			// 		}else
+			// 		{
+			// 			GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Blue, FString::Printf(TEXT("I broke after the test parse ")));
+			// 			UE_LOG(LogTemp, Warning, TEXT("Test parse failed (waiting for more data). Len=%d Text='%s'"),completePartialJsonString.Len(), *completePartialJsonString);
+			// 			GEngine->AddOnScreenDebugMessage(
+			// 				-1, // key (-1 = always add new)
+			// 				10.f, // time on screen
+			// 				FColor::Red, // color
+			// 				FString::Printf(TEXT("Test parse failed. Len=%d Text='%s'"),
+			// 					completePartialJsonString.Len(),
+			// 					*completePartialJsonString)
+			// 			);
+			// 			break;
+			// 		}
+			// 	}
+			// 	else
+			// 	{
+			// 		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Blue, FString::Printf(TEXT("the string was empty and i didnt see anything so i cleared the partial json message ")));
+			// 		PartialJsonMessage.RemoveAt(0, indexOfFoundNewLine + 1); // if the partial json message is empty just clean it out 
+			// 	}
+			// }
+
+			// GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Blue, FString::Printf(TEXT("I made it OUTSIDE of the first while loop ")));
+
+			
+			FString CompleteJsonObject;
+			while(MessageQueue.Dequeue(CompleteJsonObject)) // returns false once queue is empty 
+			{
+				if (!CompleteJsonObject.EndsWith("}") || !CompleteJsonObject.StartsWith("{"))
+				{
+					// Trim 1 char from the end until it looks valid
+					while (!CompleteJsonObject.IsEmpty() &&
+						   (!CompleteJsonObject.EndsWith("}") || !CompleteJsonObject.StartsWith("{")))
+					{
+						CompleteJsonObject.RemoveAt(CompleteJsonObject.Len() - 1);
+					}
+				}
+
+				UE_LOG(LogTemp, Warning, TEXT("Dequeued JSON: '%s'"), *CompleteJsonObject);
+				GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow,
+					FString::Printf(TEXT("Dequeued JSON: %s"), *CompleteJsonObject));
+
+				
+				TSharedPtr<FJsonObject> JsonObject; // this the new json object that is instantiated after the parsing fromm deserialize is done
+				const auto Reader = TJsonReaderFactory<>::Create(CompleteJsonObject);
+				// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Json/Serialization/FJsonSerializer/Deserialize/3
+				if (FJsonSerializer::Deserialize(Reader, JsonObject)) // parse the json string received from the server
+				{
+					FString JsonMessage, JsonType, JsonSender;
+					JsonObject->TryGetStringField(TEXT("message"), JsonMessage);
+					JsonObject->TryGetStringField(TEXT("type"), JsonType);
+					JsonObject->TryGetStringField(TEXT("sender"), JsonSender);
+
+					if (JsonType == "serverMessage")
+					{
+					
+						GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Blue, FString::Printf(TEXT("Message from server: %s"), *JsonMessage));
+						UE_LOG(LogTemp, Display, TEXT("Connection Status: %s"), *JsonMessage);
+					}
+					else if (JsonType == "chat")
+					{
+						ClientMessage = JsonMessage;
+					}
+
+					sender = JsonSender;
+				}
+				else
+				{
+
+					GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Blue, FString::Printf(TEXT("Was unable to parse")));
+					// PartialJsonMessage = CompleteJsonObject + PartialJsonMessage;
+					break;
 				}
 			}
 		}
-	// }
+		else
+		{
+			break;
+		}
+
+		// if(bytesRead <= 0) break;
+	}
 }
 
 // has pending data -> allocate buffer -> receive -> convert to f string
