@@ -52,13 +52,13 @@ const server = net.createServer((socket) => {
         while (boundary !== -1) {
             // Extract the complete message
             //Gets the first full message
-            const message = pendingData.substring(0, boundary); // (start: number, end?: number essentially the newline): string
+            const message = pendingData.substring(0, boundary + 1); // (start: number, end?: number essentially the newline): string
             // deletes the message from the pendingData string
-            pendingData = pendingData.substring(boundary + 1);
+            pendingData = pendingData.substring(boundary + 2);
 
             // Process the message
             try {
-                const parsedMessage = JSON.parse(message); // turns the string into a JSON object
+                const parsedMessage = JSON.parse(message.trim()); // turns the string into a JSON object
                 // console.log('Received message:', parsedMessage);
                 
                 // Handle different message types
