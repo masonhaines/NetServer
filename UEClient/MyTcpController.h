@@ -27,7 +27,7 @@ public:	// methods
 	void GetClientConnectionStatus();
     
 	UFUNCTION(BlueprintCallable, Category = "TCP_Controller")
-	void sendMessage(FString Message);
+	void SendMessage(FString Message, FString Type);
     
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -53,10 +53,13 @@ public:	// variables
 	
     FSocket* ClientSocket; // Socket pointer acts solely on the client, used for receiving data
     const int32 BufferSize = 4096; // Size of the pending data being sent over the client socket
-    TSharedPtr<FInternetAddr> CurrentAddress;
-	FString PartialJsonMessage;
-	TQueue<FString, EQueueMode::Mpsc> MessageQueue;
+    // TSharedPtr<FInternetAddr> CurrentAddress;
+	// FString PartialJsonMessage;
+	TQueue<FString, EQueueMode::Mpsc> QueuedJsonStrings;
 	TArray<uint8> PartialJsonBytes;
+	
+	// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Json/Dom
+	
     // TUniquePtr<FTcpListener> ServerListener; // this runs asynchronously, is only needed if this is going to be used as a listening server and not a lonely client
     
  

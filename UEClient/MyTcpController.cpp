@@ -153,15 +153,24 @@ void AMyTcpController::GetClientConnectionStatus()
 	GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Yellow, FString::Printf(TEXT("Socket State: %s"), *connectionStatus), false, FVector2D(2.0f, 1.5f));
 }
 
-void AMyTcpController::sendMessage(FString Message)
+void AMyTcpController::SendMessage(FString Message, FString Type)
 {
 	// MakeShared utility function. Allocates a new ObjectType and reference controller in a single memory block. Equivalent to std::make_shared.
 	// TSharedPtr<FJsonObject> MyJsonObject = MakeShared<FJsonObject>();
 	TSharedPtr<FJsonObject> MyJsonObject = MakeShareable(new FJsonObject());
 
 	
-	MyJsonObject->SetStringField("type", "chat");
-	MyJsonObject->SetStringField("message", Message);
+	if (Type == TEXT("updateName"))
+	{
+		MyJsonObject->SetStringField("name", Message);
+	}
+	else if (Type == TEXT("chat"))
+	{
+		MyJsonObject->SetStringField("message", Message);
+	}
+	
+	MyJsonObject->SetStringField("type", Type);
+
 
 	// convert to string  https://github.com/KellanM/OpenAI-Api-Unreal/blob/dd840428d34aa247e43e34b2a94e1605eb1ff69a/Source/OpenAIAPI/Private/OpenAICallChat.cpp#L108
 	FString MessageStringToSend;
@@ -172,10 +181,15 @@ void AMyTcpController::sendMessage(FString Message)
 	// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/Containers/FTCHARToUTF8_Convert
 	// FString String;
 	
+
+	UE_LOG(LogTemp, Warning, TEXT("JSON object being sent: '%s'"), *MessageStringToSend); // for debug
+
+	MessageStringToSend.AppendChar('\n'); // append new line as a delimiter for the end of the json message
 	// FTCHARToANSI Convert(*String);
-	// Ar->Serialize((ANSICHAR*)Convert.Get(), Convert.Length());  // FTCHARToANSI::Length() returns the number of bytes for the encoded string, excluding the null terminator.
-	
+	// Ar->Serialize((ANSICHAR*)Convert.Get(), Convert.Length());
+	// // FTCHARToANSI::Length() returns the number of bytes for the encoded string, excluding the null terminator.
 	FTCHARToUTF8 Convert(*MessageStringToSend);
+	
 	int32 BytesSent = 0;
 	ClientSocket->Send(
 		(uint8*)Convert.Get(), 
