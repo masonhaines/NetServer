@@ -48,109 +48,113 @@ const server = net.createServer((socket) => {
         pendingData += data.toString();
 
         // boundary is the spot where we find a newline character
-        let boundary = pendingData.indexOf('\n'); 
+        let boundary = pendingData.indexOf('}\n'); 
         while (boundary !== -1) {
             // Extract the complete message
             //Gets the first full message
-            const message = pendingData.substring(0, boundary + 1); // (start: number, end?: number essentially the newline): string
+            const message = pendingData.substring(0, boundary + 1).trim(); 
             // deletes the message from the pendingData string
             pendingData = pendingData.substring(boundary + 2);
 
-            // Process the message
-            try {
-                const parsedMessage = JSON.parse(message.trim()); // turns the string into a JSON object
-                // console.log('Received message:', parsedMessage);
-                
-                // Handle different message types
-                switch (parsedMessage.type) { // gets the type from message
-                case 'updateName': // if the type is greeting from the client reply with json that is type welcome
+            // if (pendingData.endsWith('}')) {
 
-
-                    if(parsedMessage.name !== null) {
-
-                        clientID.set(socket,
-                            {username: `${parsedMessage.name}:${socket.remoteAddress}:${socket.remotePort}`}
-                        )
-                        console.log(`Client ID: ${clientID.get(socket).username}`);
-                        
-                    } else if (parsedMessage.name === '') {
-
-                        clientID.set(socket,
-                            {username: `secretName${socket.remoteAddress}:${socket.remotePort}`}
-                        )
-                        console.log(`Client ID: ${clientID.get(socket).username}`);
-
-                    } else {
-
-                        clientID.set(socket,
-                            {username: `NULLNAME${socket.remoteAddress}:${socket.remotePort}`}
-                        )
-                        console.log(`Client ID: ${clientID.get(socket).username}`);
-
-                    }
-                        
+            
+                // Process the message
+                try {
+                    const parsedMessage = JSON.parse(message.trim()); // turns the string into a JSON object
+                    // console.log('Received message:', parsedMessage);
                     
-                    socket.write(JSON.stringify({
-                    type: 'serverMessage',
-                    message: `Hello, ${parsedMessage.name}! Welcome to my chat server homie!`,
-                    timestamp: Date.now(),
-                    clientID: clientID.get(socket).username
-                    }) + '\n');
-                    break;
-                    
-                // case 'query':
-                //     socket.write(JSON.stringify({
-                //     type: 'response',
-                //     queryId: parsedMessage.queryId,
-                //     result: handleQuery(parsedMessage.query),
-                //     timestamp: Date.now()
-                //     }) + '\n');
-                //     break;
+                    // Handle different message types
+                    switch (parsedMessage.type) { // gets the type from message
+                    case 'updateName': // if the type is greeting from the client reply with json that is type welcome
 
-                    // 
-                // case 'chat': {
-                // const info = clientID.get(socket);
-                // const senderName = info?.username ?? `${socket.remoteAddress}:${socket.remotePort}`;
-                // broadcast({
-                //     type: 'chat',
-                //     sender: senderName,
-                //     message: parsedMessage.message,
-                //     timestamp: Date.now()
-                // }, socket);
-                // break;
-                // }
 
-                case 'chat':
+                        if(parsedMessage.name !== null) {
+
+                            clientID.set(socket,
+                                {username: `${parsedMessage.name}:${socket.remoteAddress}:${socket.remotePort}`}
+                            )
+                            console.log(`Client ID: ${clientID.get(socket).username}`);
+                            
+                        } else if (parsedMessage.name === '') {
+
+                            clientID.set(socket,
+                                {username: `secretName${socket.remoteAddress}:${socket.remotePort}`}
+                            )
+                            console.log(`Client ID: ${clientID.get(socket).username}`);
+
+                        } else {
+
+                            clientID.set(socket,
+                                {username: `NULLNAME${socket.remoteAddress}:${socket.remotePort}`}
+                            )
+                            console.log(`Client ID: ${clientID.get(socket).username}`);
+
+                        }
+                            
+                        
+                        socket.write(JSON.stringify({
+                        type: 'serverMessage',
+                        message: `Hello, ${parsedMessage.name}! Welcome to my chat server homie!`,
+                        timestamp: Date.now(),
+                        clientID: clientID.get(socket).username
+                        }) + '\n');
+                        break;
+                        
+                    // case 'query':
+                    //     socket.write(JSON.stringify({
+                    //     type: 'response',
+                    //     queryId: parsedMessage.queryId,
+                    //     result: handleQuery(parsedMessage.query),
+                    //     timestamp: Date.now()
+                    //     }) + '\n');
+                    //     break;
+
+                        // 
+                    case 'chat': {
+                    const info = clientID.get(socket);
+                    const senderName = info?.username ?? `${socket.remoteAddress}:${socket.remotePort}`;
                     broadcast({
-                    type: 'chat',
-                    sender: clientID.get(socket).username,
-                    message: parsedMessage.message,
-                    timestamp: Date.now()
-                    }, socket); // send message to all clients on socket
-                break;
-                    
-                default:
+                        type: 'chat',
+                        sender: senderName,
+                        message: parsedMessage.message,
+                        timestamp: Date.now()
+                    }, socket);
+                    break;
+                    }
+
+                    // case 'chat':
+                    //     broadcast({
+                    //     type: 'chat',
+                    //     sender: clientID.get(socket).username,
+                    //     message: parsedMessage.message,
+                    //     timestamp: Date.now()
+                    //     }, socket); // send message to all clients on socket
+                    // break;
+                        
+                    default:
+                        socket.write(JSON.stringify({
+                        type: 'error',
+                        message: 'Unknown message type',
+                        timestamp: Date.now()
+                        }) + '\n');
+                    }
+
+
+                } catch (err) {
+                    console.error('Error processing message:', err);
                     socket.write(JSON.stringify({
                     type: 'error',
-                    message: 'Unknown message type',
+                    message: 'Invalid JSON format',
                     timestamp: Date.now()
                     }) + '\n');
                 }
-
-
-            } catch (err) {
-                console.error('Error processing message:', err);
-                socket.write(JSON.stringify({
-                type: 'error',
-                message: 'Invalid JSON format',
-                timestamp: Date.now()
-                }) + '\n');
-            }
-            
-            // Look for the next message
-            boundary = pendingData.indexOf('\n');
+                
+                // Look for the next message
+                boundary = pendingData.indexOf('}\n');
+            // }
+           
         }
-
 
     });
 
