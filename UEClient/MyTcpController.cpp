@@ -14,7 +14,7 @@ AMyTcpController::AMyTcpController()
 {
 	ServerMessage = "";
 	ClientMessage = "";
- 	CurrentAddress = nullptr;
+ 	// CurrentAddress = nullptr;
     ClientSocket = nullptr; // init Client socket pointer to nullptr
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
     PrimaryActorTick.bCanEverTick = true;
@@ -40,13 +40,13 @@ void AMyTcpController::BeginPlay()
 
 
 // delegate callback for newly connected clients when Unreal itself is the TCP server.
-// bool ATCPController::ClientConnected(FSocket* Socket, const FIPv4Endpoint& FIPV4Endpoint)
-// {
-// 	GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Red, "ClientConnected");
-// 	
-// 	UE_LOG(LogTemp, Display, TEXT("Client connected"));
-// 	return true;
-// }
+    //// bool ATCPController::ClientConnected(FSocket* Socket, const FIPv4Endpoint& FIPV4Endpoint)
+    //// {
+    //// 	GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Red, "ClientConnected");
+    //// 	
+    //// 	UE_LOG(LogTemp, Display, TEXT("Client connected"));
+    //// 	return true;
+    //// }
 
 
 void AMyTcpController::Connect(FString ServerHostingIP)
@@ -105,8 +105,6 @@ void AMyTcpController::Connect(FString ServerHostingIP)
 		Disconnect();
 		GetClientConnectionStatus();
 	}
-	// CurrentAddress = InternetAddress;
-	
 }
 
 void AMyTcpController::Disconnect()
@@ -157,7 +155,33 @@ void AMyTcpController::GetClientConnectionStatus()
 
 void AMyTcpController::sendMessage(FString Message)
 {
+	// MakeShared utility function. Allocates a new ObjectType and reference controller in a single memory block. Equivalent to std::make_shared.
+	// TSharedPtr<FJsonObject> MyJsonObject = MakeShared<FJsonObject>();
+	TSharedPtr<FJsonObject> MyJsonObject = MakeShareable(new FJsonObject());
+
 	
+	MyJsonObject->SetStringField("type", "chat");
+	MyJsonObject->SetStringField("message", Message);
+
+	// convert to string  https://github.com/KellanM/OpenAI-Api-Unreal/blob/dd840428d34aa247e43e34b2a94e1605eb1ff69a/Source/OpenAIAPI/Private/OpenAICallChat.cpp#L108
+	FString MessageStringToSend;
+	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<TCHAR>::Create(&MessageStringToSend); // why cant i just pass by reference normally?
+	FJsonSerializer::Serialize(MyJsonObject.ToSharedRef(), Writer); // returns true if serialize worked 
+
+	// Code snippet from https://dev.epicgames.com/documentation/en-us/unreal-engine/character-encoding-in-unreal-engine?
+	// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/Containers/FTCHARToUTF8_Convert
+	// FString String;
+	
+	// FTCHARToANSI Convert(*String);
+	// Ar->Serialize((ANSICHAR*)Convert.Get(), Convert.Length());  // FTCHARToANSI::Length() returns the number of bytes for the encoded string, excluding the null terminator.
+	
+	FTCHARToUTF8 Convert(*MessageStringToSend);
+	int32 BytesSent = 0;
+	ClientSocket->Send(
+		(uint8*)Convert.Get(), 
+		Convert.Length(), 
+		BytesSent
+	);
 }
 
 // Called every frame
