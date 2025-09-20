@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <video id="video" controls autoplay></video>
+    <script src="./node_modules/hls.js/dist/hls.min.js"></script> // npm install hls.js
+
+    <script>
+    const video = document.getElementById('video');
+    const url = 'http://100.71.46.81:8888/webcam.sdp/index.m3u8';
+    if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(url);
+        hls.attachMedia(video);
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = url;
+    }
+    </script>
+  </body>
+</html>
