@@ -126,22 +126,28 @@ ffmpeg -f v4l2 -i /dev/video0 -f alsa -i default -c:v libx264 -preset veryfast -
 
 
 # what is being ran 
-- without audio
+
+#without audio
 
 ffmpeg -f v4l2 -i /dev/video0 -c:v libx264 -preset veryfast -tune zerolatency -maxrate 3000k -bufsize 6000k -f rtsp rtsp://127.0.0.1:8554/webcam.sdp
 
-- with audio
+# with audio
 
 ffmpeg -f v4l2 -i /dev/video0 \
   -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p \
   -c:a aac -ar 44100 -b:a 128k \
   -f rtsp rtsp://127.0.0.1:8554/webcam.sdp
 
-- this is for RTMP 
+# this is for RTMP 
+
 ffmpeg -f v4l2 -i /dev/video0 \
   -c:v libx264 -preset veryfast -tune zerolatency \
   -maxrate 3000k -bufsize 6000k \
   -f flv rtmp://127.0.0.1:1935/live/webcam
+
+# this is for WebRTC
+
+ffmpeg -f v4l2 -i /dev/video0   -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p   -c:a aac -ar 44100 -b:a 128k   -f rtsp rtsp://127.0.0.1:8554/webcam.sdp
 
 
 # terminal client check 
