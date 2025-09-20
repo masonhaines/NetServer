@@ -158,4 +158,63 @@ hlsAlwaysRemux: yes
 
 # tailscale IP for Linux machine 100.71.46.81
 
+Full Setup Guide: MediaMTX + FFmpeg + Tailscale on Linux Mint
+1. Update System & Install FFmpeg
+sudo apt update
+sudo apt install ffmpeg v4l-utils -y
 
+- ffmpeg → video/audio encoding/streaming.
+- v4l-utils → tools to list and manage webcam devices.
+
+Check camera:
+v4l2-ctl --list-devices
+2. Install MediaMTX
+Download the latest amd64 build from MediaMTX releases (https://github.com/bluenviron/mediamtx/releases). Example:
+
+wget https://github.com/bluenviron/mediamtx/releases/download/v1.15.0/mediamtx_v1.15.0_linux_amd64.tar.gz
+tar -xvzf mediamtx_v1.15.0_linux_amd64.tar.gz
+cd mediamtx_v1.15.0_linux_amd64
+./mediamtx
+
+You should see logs like:
+[RTSP] listener opened on :8554
+[RTMP] listener opened on :1935
+[HLS] listener opened on :8888
+3. Install & Configure Tailscale
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+
+- Follow the login URL to authenticate.
+- Get your Tailscale IP:
+  tailscale ip -4
+
+Example: 100.92.15.23
+
+This IP is what your Unreal PC will use to connect.
+4. Test Webcam Access
+ffplay -f v4l2 -framerate 30 -video_size 1280x720 /dev/video0
+
+If it shows video, good.
+5. Push Webcam → MediaMTX
+RTSP option:
+ffmpeg -f v4l2 -i /dev/video0   -c:v libx264 -preset veryfast -tune zerolatency   -maxrate 3000k -bufsize 6000k   -f rtsp rtsp://127.0.0.1:8554/webcam.sdp
+
+Publishes as rtsp://<tailscale-ip>:8554/webcam.sdp
+
+RTMP option:
+ffmpeg -f v4l2 -i /dev/video0   -c:v libx264 -preset veryfast -tune zerolatency   -maxrate 3000k -bufsize 6000k   -f flv rtmp://127.0.0.1:1935/live/webcam
+
+Publishes as rtmp://<tailscale-ip>:1935/live/webcam
+6. Test From Another Machine (Unreal PC via Tailscale)
+RTSP:
+ffplay rtsp://100.92.15.23:8554/webcam.sdp
+
+RTMP:
+ffplay rtmp://100.92.15.23:1935/live/webcam
+
+Logs in MediaMTX should confirm a client is connected.
+7. (Optional) Test in Browser (HLS)
+MediaMTX auto-generates an HLS feed:
+http://100.92.15.23:8888/webcam.sdp/index.m3u8
+
+Open that in Chrome/Firefox.
