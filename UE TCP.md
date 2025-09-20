@@ -48,7 +48,7 @@ The Server object returned by `createServer()` has these useful properties and m
 #Boost
 Is apart of the boost framework https://www.boost.org/doc/user-guide/task-networking.html
 #SimpleChat 
-https://www.geeksforgeeks.org/cpp/synchronous-chatting-application-using-c-boostasio/?utm_source=chatgpt.com
+https://www.geeksforgeeks.org/cpp/synchronous-chatting-application-using-c-boostasio
 
 https://think-async.com/Asio/Download.html
 - You will then download the ASIO version zip.
@@ -66,12 +66,16 @@ https://think-async.com/Asio/Download.html
 
 
 Streaming
-https://dev.epicgames.com/documentation/en-us/unreal-engine/media-framework-overview-for-unreal-engine?utm_source=chatgpt.com
+https://dev.epicgames.com/documentation/en-us/unreal-engine/media-framework-overview-for-unreal-engine?
 
 https://ffmpeg.org/ffmpeg.html
 
 https://www.wowza.com/blog/rtmp-vs-rtsp-which-protocol-should-you-choose
 https://ably.com/blog/what-is-webrtc?
+https://dev.epicgames.com/documentation/en-us/unreal-engine/media-framework-overview-for-unreal-engine?
+https://dev.epicgames.com/documentation/en-us/unreal-engine/media-framework-technical-reference-for-unreal-engine
+https://dev.epicgames.com/documentation/en-us/unreal-engine/play-a-video-stream-in-unreal-engine
+https://dev.epicgames.com/documentation/en-us/unreal-engine/playing-live-video-captures-in-unreal-engine
 
 # Real Time Streaming Protocol (RTMP) 
 # Real Time Messaging Protocol (RTMP)
@@ -151,9 +155,33 @@ ffmpeg -f v4l2 -i /dev/video0   -c:v libx264 -preset veryfast -tune zerolatency
 
 
 # terminal client check 
+run in terminal RTSP
 - ffplay rtsp://100.71.46.81:8554/webcam.sdp
+- matched ffmpeg command: 
+- ffmpeg -f v4l2 -i /dev/video0 \
+  -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p \
+  -c:a aac -ar 44100 -b:a 128k \
+  -f rtsp rtsp://127.0.0.1:8554/webcam.sdp
+
+run in terminal RTMP
 - ffplay rtmp://100.71.46.81:1935/live/webcam
+- matched command:
+- ffmpeg -f v4l2 -i /dev/video0 \
+  -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p \
+  -c:a aac -ar 44100 -b:a 128k \
+  -f flv rtmp://127.0.0.1:1935/live/webcam
+
+run in browser WebRTC
 - http://100.71.46.81:8889/webcam.sdp
+- matched command:
+
+run in UE/html
+- http://100.71.46.81:8888/webcam.sdp/index.m3u8
+- matched command :
+- ffmpeg -f v4l2 -i /dev/video0 \
+  -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p \
+  -c:a aac -ar 44100 -b:a 128k \
+  -f rtsp rtsp://127.0.0.1:8554/webcam.sdp
 
 to run in browser after going inot yml and adding 
 hls: yes
