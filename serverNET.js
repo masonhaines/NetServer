@@ -113,10 +113,15 @@ const server = net.createServer((socket) => {
                         // 
                     case 'chat': {
                     const info = clientID.get(socket);
-                    const senderName = info?.username ?? `${socket.remoteAddress}:${socket.remotePort}`;
+                    let senderName;
+                    if (info && info.username) {
+                        senderName = info.username;
+                    } else {
+                        senderName = `${socket.remoteAddress}:${socket.remotePort}`;
+                    }
                     broadcast({
                         type: 'chat',
-                        sender: senderName,
+                        sender: senderName, // equiv to clientID.get(socket).username
                         message: parsedMessage.message,
                         timestamp: Date.now()
                     }, socket);
