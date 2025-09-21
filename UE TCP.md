@@ -132,15 +132,60 @@ ffmpeg -f v4l2 -i /dev/video0 -f alsa -i default -c:v libx264 -preset veryfast -
 # what is being ran 
 
 #without audio
-
+```
 ffmpeg -f v4l2 -i /dev/video0 -c:v libx264 -preset veryfast -tune zerolatency -maxrate 3000k -bufsize 6000k -f rtsp rtsp://127.0.0.1:8554/webcam.sdp
+```
+
+```
+ffmpeg \
+  -f v4l2 -i /dev/video0 \
+  -c:v libx264 \
+  -preset ultrafast \
+  -tune zerolatency \
+  -g 15 -keyint_min 15 -sc_threshold 0 \
+  -pix_fmt yuv420p \
+  -an \
+  -f rtsp -rtsp_transport tcp \
+  rtsp://127.0.0.1:8554/webcam.sdp
+```
+```
+-f v4l2: Use Video4Linux2 as input format.
+-i /dev/video0: Select webcam device.
+-c:v libx264: Encode video with H.264 codec.
+-preset ultrafast: Fastest encoder preset, lowest latency.
+-tune zerolatency: Disable lookahead, minimize buffering.
+-g 15: Force keyframe every 15 frames.
+-keyint_min 15: Minimum keyframe interval 15.
+-sc_threshold 0: Prevents scene-detect inserting extra keyframes.
+-pix_fmt yuv420p: Set pixel format compatible with UE Media Framework.
+-an: Disable audio entirely.
+-f rtsp: Output format RTSP.
+-rtsp_transport tcp: Use TCP for RTSP transport.
+rtsp://127.0.0.1:8554/webcam.sdp: Destination RTSP URL.
+```
 
 # with audio
-
+```
 ffmpeg -f v4l2 -i /dev/video0 \
   -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p \
   -c:a aac -ar 44100 -b:a 128k \
   -f rtsp rtsp://127.0.0.1:8554/webcam.sdp
+```
+
+```
+ffmpeg \
+  -f v4l2 -i /dev/video0 \
+  -f alsa -i default \
+  -c:v libx264 \
+  -preset ultrafast \
+  -tune zerolatency \
+  -g 15 -keyint_min 15 -sc_threshold 0 \
+  -pix_fmt yuv420p \
+  -c:a aac -ar 44100 -b:a 64k \
+  -f rtsp -rtsp_transport tcp \
+  rtsp://127.0.0.1:8554/webcam.sdp
+
+```
 
 # this is for RTMP 
 
@@ -158,18 +203,22 @@ ffmpeg -f v4l2 -i /dev/video0   -c:v libx264 -preset veryfast -tune zerolatency
 run in terminal RTSP
 - ffplay rtsp://100.71.46.81:8554/webcam.sdp
 - matched ffmpeg command: 
-- ffmpeg -f v4l2 -i /dev/video0 \
+```
+ffmpeg -f v4l2 -i /dev/video0 \
   -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p \
   -c:a aac -ar 44100 -b:a 128k \
   -f rtsp rtsp://127.0.0.1:8554/webcam.sdp
+```
 
 run in terminal RTMP
 - ffplay rtmp://100.71.46.81:1935/live/webcam
 - matched command:
-- ffmpeg -f v4l2 -i /dev/video0 \
+```
+ffmpeg -f v4l2 -i /dev/video0 \
   -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p \
   -c:a aac -ar 44100 -b:a 128k \
   -f flv rtmp://127.0.0.1:1935/live/webcam
+```
 
 run in browser WebRTC
 - http://100.71.46.81:8889/webcam.sdp
@@ -178,10 +227,13 @@ run in browser WebRTC
 run in UE/html
 - http://100.71.46.81:8888/webcam.sdp/index.m3u8
 - matched command :
-- ffmpeg -f v4l2 -i /dev/video0 \
+
+```
+ffmpeg -f v4l2 -i /dev/video0 \
   -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p \
   -c:a aac -ar 44100 -b:a 128k \
   -f rtsp rtsp://127.0.0.1:8554/webcam.sdp
+```
 
 to run in browser after going inot yml and adding 
 hls: yes
