@@ -65,7 +65,7 @@ client.on('data', (data) => {
         // display the parsed message that was broadcasted from the server 
         // let SplitUsername = parsed.sender.split(':::') // this removes all the information that the server needs, this should really by done on the server end...... like saving the name // yah i  just fixed it in server side 
         // let SenderUserName = SplitUsername[0];
-        console.log(`[${SenderUserName}] ${parsed.message}`);
+        console.log(`[${parsed.sender}] ${parsed.message}`);
       }
 
     } catch (err) {
