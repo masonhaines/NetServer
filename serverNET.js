@@ -72,21 +72,21 @@ const server = net.createServer((socket) => {
                         if(parsedMessage.name !== null) {
 
                             clientID.set(socket,
-                                {username: `${parsedMessage.name}:${socket.remoteAddress}:${socket.remotePort}`}
+                                {username: `${parsedMessage.name}`, Ip: socket.remoteAddress, Port: socket.remotePort}
                             )
                             console.log(`Client ID: ${clientID.get(socket).username}`);
                             
                         } else if (parsedMessage.name === '') {
 
                             clientID.set(socket,
-                                {username: `secretName${socket.remoteAddress}:${socket.remotePort}`}
+                                {username: `secretName`, Ip: socket.remoteAddress, Port: socket.remotePort}
                             )
                             console.log(`Client ID: ${clientID.get(socket).username}`);
 
                         } else {
 
                             clientID.set(socket,
-                                {username: `NULLNAME${socket.remoteAddress}:${socket.remotePort}`}
+                                {username: `NULLNAME`, Ip: socket.remoteAddress, Port: socket.remotePort}
                             )
                             console.log(`Client ID: ${clientID.get(socket).username}`);
 
@@ -114,10 +114,10 @@ const server = net.createServer((socket) => {
                     case 'chat': {
                     const info = clientID.get(socket);
                     let senderName;
-                    if (info && info.username) {
+                    if (info && info.username) { // check to make sure client actually has a name 
                         senderName = info.username;
                     } else {
-                        senderName = `${socket.remoteAddress}:${socket.remotePort}`;
+                        senderName = `NULLNAME`;
                     }
                     broadcast({
                         type: 'chat',
