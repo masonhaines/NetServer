@@ -2,11 +2,29 @@
 
 // const { ClientRequest } = require('http');
 const net = require('net');
+const fs = require('fs');
+const path = require("path");
+// const { clear } = require('console');
 
 // Storage for connected clients
 const clientsArray = [];
 
+
+
 const portNumber = 7777;
+
+// Broadcast message to all clients except the sender---------------------------------------------------------------------------------- needs to fixewd to be json
+function broadcast(message, sender) {
+
+    // clientSocketElement is just the parameter name for each element in the array
+    // Convert message to JSON and append newline
+    const json = JSON.stringify(message) + '\n';
+    clientsArray.forEach(clientSocketElement => {
+        if (clientSocketElement !== sender) {
+            clientSocketElement.write(json);
+        }
+    });
+}
 
 
 // Create a TCP server called server and recieve data from the 'socket' ie the client 
@@ -112,21 +130,23 @@ const server = net.createServer((socket) => {
 
                         // 
                     case 'chat': {
-                    const info = clientID.get(socket);
-                    let senderName;
-                    if (info && info.username) { // check to make sure client actually has a name 
-                        senderName = info.username;
-                    } else {
-                        senderName = `NULLNAME`;
+                        const info = clientID.get(socket);
+                        let senderName;
+                        if (info && info.username) { // check to make sure client actually has a name 
+                            senderName = info.username;
+                        } else {
+                            senderName = `NULLNAME`;
+                        }
+                        broadcast({
+                            type: 'chat',
+                            sender: senderName, // equiv to clientID.get(socket).username
+                            message: parsedMessage.message,
+                            timestamp: Date.now()
+                        }, socket);
+                        break;
                     }
-                    broadcast({
-                        type: 'chat',
-                        sender: senderName, // equiv to clientID.get(socket).username
-                        message: parsedMessage.message,
-                        timestamp: Date.now()
-                    }, socket);
-                    break;
-                    }
+
+                    
 
                     // case 'chat':
                     //     broadcast({
@@ -164,18 +184,18 @@ const server = net.createServer((socket) => {
     });
 
 
-    // Broadcast message to all clients except the sender---------------------------------------------------------------------------------- needs to fixewd to be json
-    function broadcast(message, sender) {
+    // // Broadcast message to all clients except the sender---------------------------------------------------------------------------------- needs to fixewd to be json
+    // function broadcast(message, sender) {
 
-        // clientSocketElement is just the parameter name for each element in the array
-        // Convert message to JSON and append newline
-        const json = JSON.stringify(message) + '\n';
-        clientsArray.forEach(clientSocketElement => {
-            if (clientSocketElement !== sender) {
-                clientSocketElement.write(json);
-            }
-        });
-    }
+    //     // clientSocketElement is just the parameter name for each element in the array
+    //     // Convert message to JSON and append newline
+    //     const json = JSON.stringify(message) + '\n';
+    //     clientsArray.forEach(clientSocketElement => {
+    //         if (clientSocketElement !== sender) {
+    //             clientSocketElement.write(json);
+    //         }
+    //     });
+    // }
 
 
     // notify all the clients about new connection
@@ -193,6 +213,8 @@ const server = net.createServer((socket) => {
         if (index !== -1) {
             clientsArray.splice(index, 1); // removes an element from the array 
         }
+
+        clearInterval(DataInterval);
     });
 
     socket.on('error', (err) => {
@@ -202,6 +224,7 @@ const server = net.createServer((socket) => {
             console.error('Socket error:', err);
         }
     });
+    
 
 
 });
@@ -244,4 +267,41 @@ process.on('SIGINT', () => {
     console.log('I didnt want to close ')
     return;
 });
+
+function ReadDataFromFile(data) {
+    try{
+
+        fs.readFile(data, 'utf8', (err, fileData) => {
+            if (err) {
+                console.error('Error reading file:', err);
+                return;
+            }
+            // console.log('File data:', fileData);
+            broadcast({
+                type: 'CawfeData',
+                message: 'Cawfe Data Update',
+                data: fileData,
+                timestamp: Date.now()
+            });
+        });
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+const folder = "E:\\servers\\NodeJS_Net\\NodeJS_NetServer\\cawfeData";
+
+const DataInterval = setInterval(() => {
+
+    fs.readdir(folder, (err, files) => {
+        if (err) {
+            console.error('Error reading directory:', err);
+            return;
+        }
+        files.forEach(file => {
+            ReadDataFromFile(path.join(folder, file));
+        });
+    });
+
+}, 10000); // Check every 10 seconds
 

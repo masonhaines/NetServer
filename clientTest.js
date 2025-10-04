@@ -12,8 +12,8 @@ const readLine = readline.createInterface({
 });
 
 // Connect to the server with the new client object 
-const client = net.createConnection({host: '100.120.166.48', port: 7777 }, () => {
-  // const client = net.createConnection({port: 7777 }, () => {
+// const client = net.createConnection({host: '100.120.166.48', port: 7777 }, () => {
+  const client = net.createConnection({port: 7777 }, () => {
 
   console.log('Connected to server');
   console.log('Type a message and press Enter to send');
@@ -66,6 +66,10 @@ client.on('data', (data) => {
         // let SplitUsername = parsed.sender.split(':::') // this removes all the information that the server needs, this should really by done on the server end...... like saving the name // yah i  just fixed it in server side 
         // let SenderUserName = SplitUsername[0];
         console.log(`[${parsed.sender}] ${parsed.message}`);
+      }
+      else if (parsed.type === 'CawfeData') {
+        console.log(`\n[Server CawfeData Update] ${parsed.message}`);
+        console.log(parsed.data);
       }
 
     } catch (err) {
