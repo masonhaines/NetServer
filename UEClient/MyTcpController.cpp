@@ -18,6 +18,7 @@ AMyTcpController::AMyTcpController()
     ClientSocket = nullptr; // init Client socket pointer to nullptr
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
     PrimaryActorTick.bCanEverTick = true;
+	bIsConnected = false;
 }
 
 // Called when the game starts or when spawned
@@ -118,6 +119,8 @@ void AMyTcpController::Disconnect()
 		ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(ClientSocket); 
 		ClientSocket = nullptr; // remove any possible dangle
 	}
+
+	bIsConnected = false;
 }
 
 void AMyTcpController::GetClientConnectionStatus()
@@ -155,6 +158,12 @@ void AMyTcpController::GetClientConnectionStatus()
 
 void AMyTcpController::SendMessage(FString Message, FString Type)
 {
+
+	if (!ClientSocket || ClientSocket->GetConnectionState() != SCS_Connected)
+	{
+		return;
+	}
+	
 	// MakeShared utility function. Allocates a new ObjectType and reference controller in a single memory block. Equivalent to std::make_shared.
 	// TSharedPtr<FJsonObject> MyJsonObject = MakeShared<FJsonObject>();
 	TSharedPtr<FJsonObject> MyJsonObject = MakeShareable(new FJsonObject());
@@ -163,6 +172,7 @@ void AMyTcpController::SendMessage(FString Message, FString Type)
 	if (Type == TEXT("updateName"))
 	{
 		MyJsonObject->SetStringField("name", Message);
+		UnrealEngineMessagingAlias = Message;
 	}
 	else if (Type == TEXT("chat"))
 	{
@@ -209,7 +219,8 @@ void AMyTcpController::Tick(float DeltaTime)
 	{
 		return;
 	}
-	
+
+	bIsConnected = true;
 	uint32 PendingDataSize = 0;
 	while(ClientSocket->HasPendingData(PendingDataSize)) // Queries the socket to determine if there is pending data on the queue and saves it in variable ref
 	{
@@ -292,7 +303,7 @@ void AMyTcpController::Tick(float DeltaTime)
 						UE_LOG(LogTemp, Display, TEXT("Connection Status: %s"), *JsonMessageField);
 					}
 
-					sender = JsonSenderField;
+					Sender = JsonSenderField;
 				}
 				else
 				{
@@ -306,6 +317,59 @@ void AMyTcpController::Tick(float DeltaTime)
 			break;
 		}
 	}
+}
+
+
+// this needs to be moved into is own class later, but when adapted to plugin can remain apart of source 
+
+TArray<FString> AMyTCpController::ReadStringFromFile(FString FilePath, bool& bWasReadSuccessful){
+	// check if files exists
+	// if (FPlatformFileManager::Get().GetPlatformFile().FileExists(*FilePath))
+	// {
+	// 	FString FileContent;
+	// 	if (FFileHelper::LoadFileToString(FileContent, *FilePath))
+	// 	{
+	// 		// Successfully read the file content
+	// 		UE_LOG(LogTemp, Log, TEXT("File Content: %s"), *FileContent);
+	// 		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Cyan, FString::Printf(TEXT("File Content: %s"), *FileContent), false, FVector2D(1.5f, 1.5f));
+	// 	}
+	// 	else
+	// 	{
+	// 		// Failed to read the file content
+	// 		UE_LOG(LogTemp, Error, TEXT("Failed to read file: %s"), *FilePath);
+	// 		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Red, FString::Printf(TEXT("Failed to read file: %s"), *FilePath), false, FVector2D(1.5f, 1.5f));
+	// 	}
+	// }
+	// else
+	// {
+	// 	// File does not exist
+	// 	UE_LOG(LogTemp, Warning, TEXT("File does not exist: %s"), *FilePath);
+	// 	GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Yellow, FString::Printf(TEXT("File does not exist: %s"), *FilePath), false, FVector2D(1.5f, 1.5f));
+	// }
+
+	if(!FPlatformFileManager::Get().GetPlatformFile().FileExists(*FilePath))
+	{
+		bWasReadSuccessful = false;
+		UE_LOG(LogTemp, Warning, TEXT("File does not exist: %s"), *FilePath);
+		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Yellow, FString::Printf(TEXT("File does not exist: %s"), *FilePath), false, FVector2D(1.5f, 1.5f));
+		return "";
+	}
+
+	TArray<FString> ReturnString = {};
+
+	// Try to read the file. Output then is stored in return string
+	if(!FFileHelper::LoadFileToStringArray(ReturnString, *FilePath)){
+		bWasReadSuccessful = false;
+		UE_LOG(LogTemp, Log, TEXT("File Content: %s"), *ReturnString);
+		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Cyan, FString::Printf(TEXT("File Content: %s"), *ReturnString), false, FVector2D(1.5f, 1.5f));
+		return "";
+
+	}
+
+	bWasReadSuccessful = true;
+	UE_LOG(LogTemp, Log, TEXT("read was successful: %s"), *ReturnString);
+	GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Green, FString::Printf(TEXT("read was successful: %s"), *ReturnString), false, FVector2D(1.5f, 1.5f));
+	return ReturnString;
 }
 
 // has pending data -> allocate buffer -> receive -> convert to f string
