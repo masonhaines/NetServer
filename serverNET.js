@@ -264,9 +264,11 @@ function ReadDataFromFile(data) {
                 return;
             }
             // console.log('File data:', fileData);
+            console.log("i sent the data");
             broadcast({
                 type: 'CawfeData',
                 message: 'Cawfe Data Update',
+                sender: 'Server',
                 data: fileData,
                 timestamp: Date.now()
             });
@@ -277,7 +279,7 @@ function ReadDataFromFile(data) {
 }
 
 // read files from the cawfeData folder every ** seconds and broadcast the data to all connected clients
-const folder = "E:\\servers\\NodeJS_Net\\NodeJS_NetServer\\cawfeData";
+const folder = "C:\\Users\\demo\\servers\\NetServer\\cawfeData";
 
 const DataInterval = setInterval(() => {
 
