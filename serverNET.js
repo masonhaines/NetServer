@@ -13,7 +13,7 @@ const clientsArray = [];
 
 const portNumber = 7777;
 
-// Broadcast message to all clients except the sender---------------------------------------------------------------------------------- needs to fixewd to be json
+// Broadcast message to all clients except the sender
 function broadcast(message, sender) {
 
     // clientSocketElement is just the parameter name for each element in the array
@@ -184,20 +184,6 @@ const server = net.createServer((socket) => {
     });
 
 
-    // // Broadcast message to all clients except the sender---------------------------------------------------------------------------------- needs to fixewd to be json
-    // function broadcast(message, sender) {
-
-    //     // clientSocketElement is just the parameter name for each element in the array
-    //     // Convert message to JSON and append newline
-    //     const json = JSON.stringify(message) + '\n';
-    //     clientsArray.forEach(clientSocketElement => {
-    //         if (clientSocketElement !== sender) {
-    //             clientSocketElement.write(json);
-    //         }
-    //     });
-    // }
-
-
     // notify all the clients about new connection
     // broadcast(`New client connected: ${clientID}\n`, socket);
     broadcast({
@@ -268,6 +254,7 @@ process.on('SIGINT', () => {
     return;
 });
 
+
 function ReadDataFromFile(data) {
     try{
 
@@ -289,10 +276,14 @@ function ReadDataFromFile(data) {
     }
 }
 
+// read files from the cawfeData folder every ** seconds and broadcast the data to all connected clients
 const folder = "E:\\servers\\NodeJS_Net\\NodeJS_NetServer\\cawfeData";
 
 const DataInterval = setInterval(() => {
 
+    // Read all files in the directory**
+    // Asynchronous readdir(3) - read a directory.
+    // path — A path to a file. If a URL is provided, it must use the file: protocol.
     fs.readdir(folder, (err, files) => {
         if (err) {
             console.error('Error reading directory:', err);
@@ -301,7 +292,7 @@ const DataInterval = setInterval(() => {
         files.forEach(file => {
             ReadDataFromFile(path.join(folder, file));
         });
-    });
+    });``
 
-}, 10000); // Check every 10 seconds
+}, 10000); 
 
