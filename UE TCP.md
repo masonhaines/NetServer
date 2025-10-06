@@ -1,6 +1,11 @@
 #basics 
 If we are creating a connection between client and server using TCP then it has a few functionalities like, TCP is suited for applications that require high reliability, and transmission time is relatively less critical. It is used by other protocols like HTTP, HTTPs, FTP, SMTP, Telnet. TCP rearranges data packets in the order specified. There is absolute guarantee that the data transferred remains intact and arrives in the same order in which it was sent. TCP does Flow Control and requires three packets to set up a socket connection before any user data can be sent. TCP handles reliability and congestion control. It also does error checking and error recovery. Erroneous packets are retransmitted from the source to the destination.
 
+```
+netstat -ano | findstr LISTENING
+```
+ this is for checking if the server is actually running 
+
 [[https://www.geeksforgeeks.org/c/tcp-server-client-implementation-in-c/]]
 
 ![[Socket_server-1.png]]
@@ -48,7 +53,7 @@ The Server object returned by `createServer()` has these useful properties and m
 #Boost
 Is apart of the boost framework https://www.boost.org/doc/user-guide/task-networking.html
 #SimpleChat 
-https://www.geeksforgeeks.org/cpp/synchronous-chatting-application-using-c-boostasio
+https://www.geeksforgeeks.org/cpp/synchronous-chatting-application-using-c-boostasio/?utm_source=chatgpt.com
 
 https://think-async.com/Asio/Download.html
 - You will then download the ASIO version zip.
@@ -66,16 +71,12 @@ https://think-async.com/Asio/Download.html
 
 
 Streaming
-https://dev.epicgames.com/documentation/en-us/unreal-engine/media-framework-overview-for-unreal-engine?
+https://dev.epicgames.com/documentation/en-us/unreal-engine/media-framework-overview-for-unreal-engine?utm_source=chatgpt.com
 
 https://ffmpeg.org/ffmpeg.html
 
 https://www.wowza.com/blog/rtmp-vs-rtsp-which-protocol-should-you-choose
 https://ably.com/blog/what-is-webrtc?
-https://dev.epicgames.com/documentation/en-us/unreal-engine/media-framework-overview-for-unreal-engine?
-https://dev.epicgames.com/documentation/en-us/unreal-engine/media-framework-technical-reference-for-unreal-engine
-https://dev.epicgames.com/documentation/en-us/unreal-engine/play-a-video-stream-in-unreal-engine
-https://dev.epicgames.com/documentation/en-us/unreal-engine/playing-live-video-captures-in-unreal-engine
 
 # Real Time Streaming Protocol (RTMP) 
 # Real Time Messaging Protocol (RTMP)
@@ -99,7 +100,7 @@ ffmpeg -re -i sample.mp4 -c copy -f rtsp rtsp://localhost:8554/live.sdp
 - `-c copy`: Copy the streams without re-encoding.
 - `-f rtsp`: Use RTSP as the output format.
 - `rtsp://localhost:8554/live.sdp`: RTSP server URL and stream name.
-### 4.4. Streaming from a Webcam (Linux) https://coderslegacy.com/ffmpeg-rtsp-streaming/?
+# 4.4. Streaming from a Webcam (Linux) https://coderslegacy.com/ffmpeg-rtsp-streaming
 
 To stream video from your webcam (on Linux, typically `/dev/video0`):
 
@@ -130,41 +131,13 @@ ffmpeg -f v4l2 -i /dev/video0 -f alsa -i default -c:v libx264 -preset veryfast -
 
 
 # what is being ran 
-
-#without audio
+- without audio
 ```
 ffmpeg -f v4l2 -i /dev/video0 -c:v libx264 -preset veryfast -tune zerolatency -maxrate 3000k -bufsize 6000k -f rtsp rtsp://127.0.0.1:8554/webcam.sdp
 ```
 
-```
-ffmpeg \
-  -f v4l2 -i /dev/video0 \
-  -c:v libx264 \
-  -preset ultrafast \
-  -tune zerolatency \
-  -g 15 -keyint_min 15 -sc_threshold 0 \
-  -pix_fmt yuv420p \
-  -an \
-  -f rtsp -rtsp_transport tcp \
-  rtsp://127.0.0.1:8554/webcam.sdp
-```
-```
--f v4l2: Use Video4Linux2 as input format.
--i /dev/video0: Select webcam device.
--c:v libx264: Encode video with H.264 codec.
--preset ultrafast: Fastest encoder preset, lowest latency.
--tune zerolatency: Disable lookahead, minimize buffering.
--g 15: Force keyframe every 15 frames.
--keyint_min 15: Minimum keyframe interval 15.
--sc_threshold 0: Prevents scene-detect inserting extra keyframes.
--pix_fmt yuv420p: Set pixel format compatible with UE Media Framework.
--an: Disable audio entirely.
--f rtsp: Output format RTSP.
--rtsp_transport tcp: Use TCP for RTSP transport.
-rtsp://127.0.0.1:8554/webcam.sdp: Destination RTSP URL.
-```
-
-# with audio
+- with audio
+``
 ```
 ffmpeg -f v4l2 -i /dev/video0 \
   -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p \
@@ -172,31 +145,18 @@ ffmpeg -f v4l2 -i /dev/video0 \
   -f rtsp rtsp://127.0.0.1:8554/webcam.sdp
 ```
 
+- this is for RTMP 
 ```
-ffmpeg \
-  -f v4l2 -i /dev/video0 \
-  -f alsa -i default \
-  -c:v libx264 \
-  -preset ultrafast \
-  -tune zerolatency \
-  -g 15 -keyint_min 15 -sc_threshold 0 \
-  -pix_fmt yuv420p \
-  -c:a aac -ar 44100 -b:a 64k \
-  -f rtsp -rtsp_transport tcp \
-  rtsp://127.0.0.1:8554/webcam.sdp
-
-```
-
-# this is for RTMP 
-
 ffmpeg -f v4l2 -i /dev/video0 \
   -c:v libx264 -preset veryfast -tune zerolatency \
   -maxrate 3000k -bufsize 6000k \
   -f flv rtmp://127.0.0.1:1935/live/webcam
+```
 
-# this is for WebRTC
-
+- this is for WebRTC
+```
 ffmpeg -f v4l2 -i /dev/video0   -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p   -c:a aac -ar 44100 -b:a 128k   -f rtsp rtsp://127.0.0.1:8554/webcam.sdp
+```
 
 
 # terminal client check 
@@ -204,7 +164,7 @@ run in terminal RTSP
 - ffplay rtsp://100.71.46.81:8554/webcam.sdp
 - matched ffmpeg command: 
 ```
-ffmpeg -f v4l2 -i /dev/video0 \
+ ffmpeg -f v4l2 -i /dev/video0 \
   -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p \
   -c:a aac -ar 44100 -b:a 128k \
   -f rtsp rtsp://127.0.0.1:8554/webcam.sdp
@@ -227,15 +187,16 @@ run in browser WebRTC
 run in UE/html
 - http://100.71.46.81:8888/webcam.sdp/index.m3u8
 - matched command :
-
 ```
 ffmpeg -f v4l2 -i /dev/video0 \
   -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p \
   -c:a aac -ar 44100 -b:a 128k \
   -f rtsp rtsp://127.0.0.1:8554/webcam.sdp
+
 ```
 
-to run in browser after going inot yml and adding 
+
+to run in browser after going into .yml and adding 
 hls: yes
 hlsAddress: ":8888"
 hlsAlwaysRemux: yes
@@ -244,70 +205,28 @@ hlsAlwaysRemux: yes
 
 # tailscale IP for Linux machine 100.71.46.81
 
-Full Setup Guide: MediaMTX + FFmpeg + Tailscale on Linux Mint
-1. Update System & Install FFmpeg
-sudo apt update
-sudo apt install ffmpeg v4l-utils -y
 
-- ffmpeg → video/audio encoding/streaming.
-- v4l-utils → tools to list and manage webcam devices.
+# Reading from local files with UE
 
-Check camera:
-v4l2-ctl --list-devices
-2. Install MediaMTX
-Download the latest amd64 build from MediaMTX releases (https://github.com/bluenviron/mediamtx/releases). Example:
+https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/FFileHelper
 
-wget https://github.com/bluenviron/mediamtx/releases/download/v1.15.0/mediamtx_v1.15.0_linux_amd64.tar.gz
-tar -xvzf mediamtx_v1.15.0_linux_amd64.tar.gz
-cd mediamtx_v1.15.0_linux_amd64
-./mediamtx
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 
-You should see logs like:
-[RTSP] listener opened on :8554
-[RTMP] listener opened on :1935
-[HLS] listener opened on :8888
-3. Install & Configure Tailscale
-curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up
+TArray<FString> LoadStrings(const FString& FilePath)
+{
+    TArray<FString> OutStrings;
+    FFileHelper::LoadFileToStringArray(OutStrings, *FilePath);
+    return OutStrings;
+}
 
-- Follow the login URL to authenticate.
-- Get your Tailscale IP:
-  tailscale ip -4
-
-Example: 100.92.15.23
-
-This IP is what your Unreal PC will use to connect.
-4. Test Webcam Access
-ffplay -f v4l2 -framerate 30 -video_size 1280x720 /dev/video0
-
-If it shows video, good.
-5. Push Webcam → MediaMTX
-RTSP option:
-ffmpeg -f v4l2 -i /dev/video0   -c:v libx264 -preset veryfast -tune zerolatency   -maxrate 3000k -bufsize 6000k   -f rtsp rtsp://127.0.0.1:8554/webcam.sdp
-
-Publishes as rtsp://<tailscale-ip>:8554/webcam.sdp
-
-RTMP option:
-ffmpeg -f v4l2 -i /dev/video0   -c:v libx264 -preset veryfast -tune zerolatency   -maxrate 3000k -bufsize 6000k   -f flv rtmp://127.0.0.1:1935/live/webcam
-
-Publishes as rtmp://<tailscale-ip>:1935/live/webcam
-6. Test From Another Machine (Unreal PC via Tailscale)
-RTSP:
-ffplay rtsp://100.92.15.23:8554/webcam.sdp
-
-RTMP:
-ffplay rtmp://100.92.15.23:1935/live/webcam
-
-Logs in MediaMTX should confirm a client is connected.
-7. (Optional) Test in Browser (HLS)
-MediaMTX auto-generates an HLS feed:
-http://100.92.15.23:8888/webcam.sdp/index.m3u8
-
-Open that in Chrome/Firefox.
+NAT
+create ARecord
+host on - how to create host
+- get domain and register with DNS
 
 
 
+https://dev.epicgames.com/documentation/en-us/unreal-engine/tasks-systems-in-unreal-engine
 
 
-USE THIS LATER WEB STREAMING GAME 
-https://dev.epicgames.com/documentation/en-us/unreal-engine/getting-started-with-pixel-streaming-in-unreal-engine
