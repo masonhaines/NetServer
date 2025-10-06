@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "SimpleTcpClient",
+	"Description": "Simple TCP client. Allows UE to receive data via tcp server.",
+	"Category": "Other",
+	"CreatedBy": "Mason Haines",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "SimpleTcpClient",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
