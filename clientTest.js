@@ -68,7 +68,7 @@ client.on('data', (data) => {
         console.log(`[${parsed.sender}] ${parsed.message}`);
       }
       else if (parsed.type === 'CawfeData') {
-        console.log(`\n[Server CawfeData Update] ${parsed.message}`);
+        console.log(`\n[Server CawfeData Update from file:] ${parsed.message}`);
         console.log(parsed.data);
       }
 
