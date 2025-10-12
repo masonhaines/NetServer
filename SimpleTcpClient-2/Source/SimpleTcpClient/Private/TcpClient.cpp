@@ -206,6 +206,39 @@ void UTcpClient::SendMessage(FString Message, FString Type, FString RequestID)
 	);
 }
 
+void UTcpClient::RequestData()
+{
+	if (!ClientSocket || ClientSocket->GetConnectionState() != SCS_Connected)
+	{
+		return;
+	}
+	
+	// MakeShared utility function. Allocates a new ObjectType and reference controller in a single memory block. Equivalent to std::make_shared.
+	TSharedPtr<FJsonObject> MyJsonObject = MakeShareable(new FJsonObject());
+
+	MyJsonObject->SetStringField("type", "request");
+
+	// convert to string  https://github.com/KellanM/OpenAI-Api-Unreal/blob/dd840428d34aa247e43e34b2a94e1605eb1ff69a/Source/OpenAIAPI/Private/OpenAICallChat.cpp#L108
+	FString MessageStringToSend;
+	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<TCHAR>::Create(&MessageStringToSend); // why cant i just pass by reference normally?
+	FJsonSerializer::Serialize(MyJsonObject.ToSharedRef(), Writer); // returns true if serialize worked 
+
+	UE_LOG(LogTemp, Warning, TEXT("JSON object being sent: '%s'"), *MessageStringToSend); // for debug
+
+	MessageStringToSend.AppendChar('\n'); // append new line as a delimiter for the end of the json message
+	// FTCHARToANSI Convert(*String);
+	// Ar->Serialize((ANSICHAR*)Convert.Get(), Convert.Length());
+	// // FTCHARToANSI::Length() returns the number of bytes for the encoded string, excluding the null terminator.
+	FTCHARToUTF8 Convert(*MessageStringToSend);
+	
+	int32 BytesSent = 0;
+	ClientSocket->Send(
+		(uint8*)Convert.Get(), 
+		Convert.Length(), 
+		BytesSent
+	);
+}
+
 TArray<FString> UTcpClient::ReadStringFromFile(FString FilePath, bool& bWasReadSuccessful)
 {
 	// check if files exists
@@ -256,8 +289,6 @@ TArray<FString> UTcpClient::ReadStringFromFile(FString FilePath, bool& bWasReadS
 	GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Green, FString::Printf(TEXT("read was successful: %s"), *FirstLine), false, FVector2D(1.5f, 1.5f));
 	return ReturnString;
 }
-
-
 
 void UTcpClient::PollSocket()
 {
@@ -347,7 +378,8 @@ void UTcpClient::PollSocket()
 					ParsedJsonObject->TryGetStringField(TEXT("sender"), JsonSenderField);
 					ParsedJsonObject->TryGetStringField(TEXT("data"), JsonDataField);
 					ParsedJsonObject->TryGetStringField(TEXT("filename"), JsonFilenameField);
-
+					// data: fileData,
+					// filename: fileName,	
 
 					if (JsonTypeField == "chat")
 					{
@@ -384,26 +416,26 @@ void UTcpClient::PollSocket()
 	}
 }
 
-void UTcpClient::AddFileEntry(const FString& FileName, const FString& Data)
+
+
+void UTcpClient::AddFileEntry(const FString& Filename, const FString& Data)
 {
 	FileInformation TempFileInformation;
-	TempFileInformation.FileName = FileName;
-	TempFileInformation.Data = Data;
+	TempFileInformation.SFileName = Filename;
+	TempFileInformation.SData = Data;
 	ArrayOfReceivedFiles.Add(TempFileInformation);
 }
 
 bool UTcpClient::GetFileData(const FString& TargetFileName, FString& OutData)
 {
-	if (ArrayOfReceivedFiles.Contains(TargetFileName))
+
+	for (int32 i = 0; i < ArrayOfReceivedFiles.Num(); i++)
 	{
-		for (int32 i = 0; i < ArrayOfReceivedFiles.Num(); i++)
+		if (ArrayOfReceivedFiles[i].SFileName == TargetFileName)
 		{
-			if (ArrayOfReceivedFiles[i].FileName == TargetFileName)
-			{
-				OutData = ArrayOfReceivedFiles[i].Data;
-				ArrayOfReceivedFiles.RemoveAt(i);
-				return true;
-			}
+			OutData = ArrayOfReceivedFiles[i].SData;
+			ArrayOfReceivedFiles.RemoveAt(i);
+			return true;
 		}
 	}
 	
@@ -417,23 +449,3 @@ bool UTcpClient::GetFileData(const FString& TargetFileName, FString& OutData)
 // https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Json/Serialization/FJsonSerializer
 // https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/JsonUtilities/FJsonObjectConverter?utm_source=chatgpt.com
 // https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Sockets/FSocket/Recv?utm_source=chatgpt.com
-
-
-// with my current set up of polling the server for messages i can use my send message that has a message param and type param.
-// then give the file name in that and then pass the type as a request.
-// then from that the server can use and adjusted version of this 
-//
-// fs.readdir(folder, (err, files) => {
-// 		if (err) {
-// 			console.error('Error reading directory:', err);
-// 			return;
-// 		}
-// 		files.forEach(file => {
-// 			ReadDataFromFile(path.join(folder, file));
-// 		});
-// 	});``
-
-// to then sift through the path and where the data is stored and once the file is found send it.
-// then on the client side. if the filename doesnt macth was is requested i can refuse and wait for the next message?
-// 	even though i am not sure how well that will work with multiple blue prints making mulitple calls to the server?
-// 		i would most likely need to make a queue for requests and handle them one at a time. 

@@ -131,10 +131,12 @@ const server = net.createServer((socket) => {
                     //     }) + '\n');
                     //     break;
                     case 'request': {
-                        const requestId = parsedMessage.requestID;
-                        const requestedFile = parsedMessage.filename;
-                        pendingRequests.set(requestId, requestedFile);
+                        // const requestId = parsedMessage.requestID;
+                        // const requestedFile = parsedMessage.filename;
+                        // pendingRequests.set(requestId, requestedFile);
                         // -----------------  key    ----- value -------------
+                        GiveRequestedFiles();
+                        break;
                     }
 
                         // 
@@ -209,7 +211,7 @@ const server = net.createServer((socket) => {
             clientsArray.splice(index, 1); // removes an element from the array 
         }
 
-        clearInterval(DataInterval);
+        // clearInterval(DataInterval);
     });
 
     socket.on('error', (err) => {
@@ -290,32 +292,13 @@ function ReadDataFromFile(data) {
     }
 }
 
-function GetFileNameFromRequestId(requestId, requestedFile) {
-    if (pendingRequests.has(requestId)) {
-        return pendingRequests.get(requestId);
-    } else {
-
-        return null;
-    }
-}   
-
-
-
 // read files from the cawfeData folder every ** seconds and broadcast the data to all connected clients
 // const folder = "C:\\Users\\demo\\servers\\NetServer\\cawfeData";
 const folder = "E:\\servers\\NodeJS_Net\\NodeJS_NetServer\\data";
 
 
-const DataInterval = setInterval(() => {
-
-    if(pendingRequests.size === 0) {
-        return;
-    }
-
-    // Read all files in the directory**
-    // Asynchronous readdir(3) - read a directory.
-    // path — A path to a file. If a URL is provided, it must use the file: protocol.
-    fs.readdir(folder, (err, files) => {
+function GiveRequestedFiles() {
+        fs.readdir(folder, (err, files) => {
         if (err) {
             console.error('Error reading directory:', err);
             return;
@@ -335,6 +318,40 @@ const DataInterval = setInterval(() => {
             ReadDataFromFile(path.join(folder, file));
         });
     });
+}
 
-}, 10000);
+
+
+
+// const DataInterval = setInterval(() => {
+
+//     // if(pendingRequests.size === 0) {
+//     //     return;
+//     // }
+
+//     // Read all files in the directory**
+//     // Asynchronous readdir(3) - read a directory.
+//     // path — A path to a file. If a URL is provided, it must use the file: protocol.
+//     fs.readdir(folder, (err, files) => {
+//         if (err) {
+//             console.error('Error reading directory:', err);
+//             return;
+//         }
+
+//         // console.log(pendingRequests.values().next().value);
+
+
+//         // I dont know why but with iterating through a map you need to put the values first then the keys
+//         // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map/forEach
+//         // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map/values
+//         // for (let i = 0; i < pendingRequests.size; i++) {
+//         //     ReadDataFromFile(path.join(folder, pendingRequests.values().next().value)); // get the value of the first element in the map and pass it to ReadDataFromFile
+//         //     pendingRequests.delete(pendingRequests.keys().next().value); // remove the first element in the map
+//         // }
+//         files.forEach(file => {
+//             ReadDataFromFile(path.join(folder, file));
+//         });
+//     });
+
+// }, 60000);
 

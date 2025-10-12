@@ -17,10 +17,10 @@ struct FileInformation
 	GENERATED_BODY()
 	
 	UPROPERTY(BlueprintReadWrite)
-	FString FileName;
+	FString SFileName;
 	
 	UPROPERTY(BlueprintReadWrite)
-	FString Data;
+	FString SData;
 };
 
 UCLASS(BlueprintType)
@@ -36,7 +36,7 @@ public:
 		  	
 		  	DisplayName="Create TCP Client Object",
 		  	Keywords="Socket Connect Network",
-		  	ToolTip="Creates a TCP client object you can use to connect to a server")
+		  	ToolTip="Creates a TCP client object you can use to connect to a server, pho singleton")
 		  	)
 	static UTcpClient* CreateTcpClient(UObject* WorldContextObject);
 
@@ -57,8 +57,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "TcpClient")
 	TArray<FString> ReadStringFromFile(FString FilePath, bool& bWasReadSuccessful);
 
-	UFUNCTION(BlueprintSetter, Category = "TcpClient")
-	void AddFileEntry(const FString& FileName, const FString& Data);
+	UFUNCTION()
+	void AddFileEntry(const FString& Filename, const FString& Data);
 
 	UFUNCTION(BlueprintPure, Category = "TcpClient")
 	bool GetFileData(const FString& TargetFileName, FString& OutData);
@@ -69,6 +69,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "TcpClient")
 	void PollSocket();
 
+	UFUNCTION(BlueprintCallable, Category = "TcpClient")
+	void RequestData();
+
 
 
 protected:
@@ -77,8 +80,6 @@ public:	// variables
 
 	UPROPERTY(BlueprintReadWrite)
 	TArray<FileInformation> ArrayOfReceivedFiles;
-
-	
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TcpClient")
 	FString ServerMessage;
