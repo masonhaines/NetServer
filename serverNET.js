@@ -315,6 +315,7 @@ function GiveRequestedFiles() {
         //     pendingRequests.delete(pendingRequests.keys().next().value); // remove the first element in the map
         // }
         files.forEach(file => {
+            console.log(`Sending file: ${file}`);
             ReadDataFromFile(path.join(folder, file));
         });
     });
