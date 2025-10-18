@@ -19,10 +19,11 @@ function broadcast(message, sender) {
 
     // clientSocketElement is just the parameter name for each element in the array
     // Convert message to JSON and append newline
-    const json = JSON.stringify(message) + '\n';
+    const json = JSON.stringify(message) + "<END>";
+    // const json = JSON.stringify(message) + '\n';
     clientsArray.forEach(clientSocketElement => {
         if (clientSocketElement !== sender) {
-            clientSocketElement.write(json);
+            clientSocketElement.write(json, 'utf8' );
         }
     });
 }
@@ -59,7 +60,7 @@ const server = net.createServer((socket) => {
         message: 'Hello from the server',
         timestamp: Date.now()
 
-    }) + '\n');
+    }) + '<END>', 'utf8');
     
     // Handle data
     socket.on('data', (data) => {
@@ -119,7 +120,7 @@ const server = net.createServer((socket) => {
                         message: `Hello, ${parsedMessage.name}! Welcome to my chat server homie!`,
                         timestamp: Date.now(),
                         clientID: clientID.get(socket).username
-                        }) + '\n');
+                        }) + '<END>', 'utf8');
                         break;
                         
                     // case 'query':
@@ -173,7 +174,7 @@ const server = net.createServer((socket) => {
                         type: 'error',
                         message: 'Unknown message type',
                         timestamp: Date.now()
-                        }) + '\n');
+                        }) + '<END>', 'utf8');
                     }
 
 
@@ -183,7 +184,7 @@ const server = net.createServer((socket) => {
                     type: 'error',
                     message: 'Invalid JSON format',
                     timestamp: Date.now()
-                    }) + '\n');
+                    }) + '<END>', 'utf8');
                 }
                 
                 // Look for the next message
