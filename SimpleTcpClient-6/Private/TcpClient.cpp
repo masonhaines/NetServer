@@ -307,109 +307,80 @@ void UTcpClient::PollSocket()
 		bool bIsReadSuccessful = ClientSocket->Recv(ReceivedChunkOfBytes.GetData() , PendingDataSize,NumberOfBytesRead);
 		if(bIsReadSuccessful && NumberOfBytesRead > 0)
 		{
-			
+			// combine all the packets that have been received. 
 			PartialJsonBytes.Append(ReceivedChunkOfBytes.GetData(), NumberOfBytesRead);
 
 			while(true)
 			{
-				// int32 IndexOfNewlineDelimiter = -1;
-				// for (int32 i = 0; i < PartialJsonBytes.Num(); i++)
-				// {
-				// 	if(PartialJsonBytes[i] == '\n')
-				// 	{
-				// 		IndexOfNewlineDelimiter = i;
-				// 		break;
-				// 	}
-				// }
-				// if (IndexOfNewlineDelimiter == -1)
-				// {
-				// 	break;
-				// }
-				//
-				// // convert UTF8 to TCHAR
-				// FString JsonStringFromBytes = FString(StringCast<TCHAR>(reinterpret_cast<const UTF8CHAR*>(PartialJsonBytes.GetData()),
-				// IndexOfNewlineDelimiter).Get());
-				//
-				// int32 RemoveCount = FMath::Min(IndexOfNewlineDelimiter + 1, PartialJsonBytes.Num());
-				// PartialJsonBytes.RemoveAt(0, RemoveCount);
-				// if (!JsonStringFromBytes.IsEmpty())
-				// {
-				// 	QueuedJsonStrings.Enqueue(FString(JsonStringFromBytes));
-				// }
-				const char DelimiterBytes[] = "<END>";
+				if (!PartialJsonBytes.Contains((uint8)'<') || PartialJsonBytes.Num() < 5) {
+					break; // no chance the delimiter is present yet
+				}
+				
 				const int32 DelimiterLength = 5;
 				int32 IndexOfDelimiter = -1;
 
-				for (int32 i = 0; i + DelimiterLength <= PartialJsonBytes.Num(); ++i)
+				const int32 indexOfStartOfDelimiter = PartialJsonBytes.Num() - DelimiterLength;
+				const uint8* LoopData = PartialJsonBytes.GetData();
+				if (indexOfStartOfDelimiter >= 0)
 				{
-					if (FMemory::Memcmp(PartialJsonBytes.GetData() + i, DelimiterBytes, DelimiterLength) == 0)
+					for (int32 i = 0; i <= indexOfStartOfDelimiter; ++i)
 					{
-						IndexOfDelimiter = i;
+						// skip until '<'
+						if (LoopData[i] != (uint8)'<') continue;
+
+						// verify for  "<END>"
+						if (LoopData[i+1] == (uint8)'E' && LoopData[i+2] == (uint8)'N'
+							&& LoopData[i+3] == (uint8)'D' && LoopData[i+4] == (uint8)'>')
+						{
+							IndexOfDelimiter = i; // start index of "<END>" delim
+							break;
+						}
+					}
+
+					if (IndexOfDelimiter == -1)
+					{
 						break;
 					}
+
+						// convert UTF8 to TCHAR
+					FString JsonStringFromBytes = FString(StringCast<TCHAR>(reinterpret_cast<const UTF8CHAR*>(PartialJsonBytes.GetData()),
+					IndexOfDelimiter).Get());
+						// essentially we found a delim so that means a new stream of packets
+						// are coming through the socket and we need to clean out the T array that is holding
+						// the bytes from the previous stream of packets. including the delim itself.
+					int32 messagelength = IndexOfDelimiter;
+					int32 removalCount = messagelength + DelimiterLength;
+
+					if (removalCount <= 0 || removalCount > PartialJsonBytes.Num())
+					{
+						UE_LOG(LogTemp, Error, TEXT("Issue with size of remove Count. T array Partial Json Bytes has been reset "));
+						PartialJsonBytes.Reset();
+						break;
+					}
+					
+					PartialJsonBytes.RemoveAt(0, removalCount, false);
+
+					if (!JsonStringFromBytes.IsEmpty())
+					{
+						// load bytes into QueuedJsonStrings
+						QueuedJsonStrings.Enqueue(FString(JsonStringFromBytes));
+					}
 				}
-
-				// if (IndexOfDelimiter == -1)
-				// {
-				// 	break; // no complete message yet
-				// }
-				// // Convert the current buffer to string for delimiter searching
-				// FString CurrentBufferString = FString(StringCast<TCHAR>(
-				// 	reinterpret_cast<const UTF8CHAR*>(PartialJsonBytes.GetData()), PartialJsonBytes.Num()).Get());
-				//
-				// // Define your custom delimiter
-				// const FString Delimiter = TEXT("<END>");
-				// // Find delimiter position in the string
-				// int32 IndexOfDelimiter = CurrentBufferString.Find(Delimiter);
-				// if (IndexOfDelimiter == INDEX_NONE)
-				// {
-				// 	// No complete message yet
-				// 	break;
-				// }
-				//
-				// // Extract the JSON substring (everything before delimiter)
-				// FString JsonStringFromBytes = CurrentBufferString.Left(IndexOfDelimiter);
-				//
-				// // Remove processed bytes including delimiter
-				// FTCHARToUTF8 Converter(*FString::Printf(TEXT("%s%s"), *JsonStringFromBytes, *Delimiter));
-				// int32 RemoveCount = FMath::Min(Converter.Length(), PartialJsonBytes.Num());
-				//
-				// // Safety check before removal
-				// if (RemoveCount > 0 && RemoveCount <= PartialJsonBytes.Num())
-				// {
-				// 	PartialJsonBytes.RemoveAt(0, RemoveCount);
-				// }
-				// else
-				// {
-				// 	UE_LOG(LogTemp, Error, TEXT("Invalid RemoveCount: %d (Buffer size: %d)"), RemoveCount, PartialJsonBytes.Num());
-				// 	PartialJsonBytes.Empty();
-				// 	break;
-				// }
-				
-				/////////////////--------------------------keep 
-				// Add to queue
-				// if (!JsonStringFromBytes.IsEmpty())
-				// {
-				// 	QueuedJsonStrings.Enqueue(JsonStringFromBytes);
-				// }
-
-				break; // remove me after testing 
 			}
 
-			// there maybe need to be another check before this loop to make sure this is not just adding files on top of the other 
 			
 			FString CompleteJsonStringReadyForParsing;
 			while(QueuedJsonStrings.Dequeue(CompleteJsonStringReadyForParsing)) // returns false once queue is empty 
 			{
-				if (!CompleteJsonStringReadyForParsing.EndsWith("}") || !CompleteJsonStringReadyForParsing.StartsWith("{"))
-				{
-					// Trim 1 char from the end until it looks valid, it is adding random chars at the end because of something 
-					while (!CompleteJsonStringReadyForParsing.IsEmpty() &&
-						   (!CompleteJsonStringReadyForParsing.EndsWith("}") || !CompleteJsonStringReadyForParsing.StartsWith("{")))
-					{
-						CompleteJsonStringReadyForParsing.RemoveAt(CompleteJsonStringReadyForParsing.Len() - 1);
-					}
-				}
+				// if (!CompleteJsonStringReadyForParsing.EndsWith("}") || !CompleteJsonStringReadyForParsing.StartsWith("{"))
+				// {
+				// 	// Trim 1 char from the end until it looks valid, it is adding random chars at the end because of something 
+				// 	while (!CompleteJsonStringReadyForParsing.IsEmpty() &&
+				// 		   (!CompleteJsonStringReadyForParsing.EndsWith("}") || !CompleteJsonStringReadyForParsing.StartsWith("{")))
+				// 	{
+				// 		CompleteJsonStringReadyForParsing.RemoveAt(CompleteJsonStringReadyForParsing.Len() - 1);
+				// 	}
+				// }
 
 				// UE_LOG(LogTemp, Warning, TEXT("Dequeued JSON: '%s'"), *CompleteJsonStringReadyForParsing);
 				// GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow,
@@ -468,15 +439,6 @@ void UTcpClient::PollSocket()
 					// break;
 
 					UE_LOG(LogTemp, Error, TEXT("Failed to parse JSON. Raw data: %s"), *CompleteJsonStringReadyForParsing);
-
-					// optional: show first/last bytes if data may contain binary garbage
-					FString HexPreview;
-					const int32 PreviewLen = FMath::Min(32, PartialJsonBytes.Num());
-					for (int32 i = 0; i < PreviewLen; i++)
-					{
-						HexPreview += FString::Printf(TEXT("%02X "), PartialJsonBytes[i]);
-					}
-					UE_LOG(LogTemp, Error, TEXT("Partial bytes preview (first %d): %s"), PreviewLen, *HexPreview);
 
 					break;
 				}
