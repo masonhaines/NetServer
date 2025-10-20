@@ -276,6 +276,7 @@ function ReadDataFromFile(data) {
                 console.error('Error reading file:', err);
                 return;
             }
+            const clean = fileData.replace(/\r/g, ''); 
             fileName = path.basename(data);
             // console.log('File data:', fileData);
             console.log("I sent the data");
@@ -327,7 +328,7 @@ function GiveRequestedFiles() {
         
     });
 }
-GiveRequestedFiles();
+// GiveRequestedFiles();
 
 
 

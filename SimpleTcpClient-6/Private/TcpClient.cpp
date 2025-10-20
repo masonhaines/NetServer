@@ -411,7 +411,7 @@ void UTcpClient::PollSocket()
 			while(QueuedJsonStrings.Dequeue(CompleteJsonStringReadyForParsing)) // returns false once queue is empty 
 			{
 
-				CompleteJsonStringReadyForParsing.ReplaceInline(TEXT("\r"), TEXT(""));
+				// CompleteJsonStringReadyForParsing.ReplaceInline(TEXT("\r"), TEXT(""));
 				CompleteJsonStringReadyForParsing.TrimStartAndEndInline();
 
 				// CompleteJsonStringReadyForParsing.LeftInline(CompleteJsonStringReadyForParsing.Find(TEXT("}")));
@@ -475,13 +475,14 @@ void UTcpClient::PollSocket()
                         
 						CawfeData = JsonDataField;
 						FileName = JsonFilenameField;
+						CawfeData.ReplaceInline(TEXT("\r"), TEXT(""));
 
-						// const FString CaptureCawfeData = CawfeData;
-						// const FString CaptureFilename = FileName;
-						// AsyncTask(ENamedThreads::GameThread, [this, CaptureFilename, CaptureCawfeData]()/
-						// {
-							AddFileEntry(FileName, CawfeData);
-						// });
+						const FString CaptureCawfeData = CawfeData;
+						const FString CaptureFilename = FileName;
+						AsyncTask(ENamedThreads::GameThread, [this, CaptureFilename, CaptureCawfeData]()
+						{
+							AddFileEntry(CaptureFilename, CaptureCawfeData);
+						});
                     }
 
 					Sender = JsonSenderField;
@@ -509,9 +510,10 @@ void UTcpClient::PollSocket()
 
 void UTcpClient::AddFileEntry(const FString& Filename, const FString& Data)
 {
-	FileInformation TempFileInformation;
-	TempFileInformation.SFileName = Filename;
-	TempFileInformation.SData = Data;
+	check(IsInGameThread());
+	FileInformation TempFileInformation{Filename, Data};
+	// TempFileInformation.SFileName = Filename;
+	// TempFileInformation.SData = Data;
 	ArrayOfReceivedFiles.Add(TempFileInformation);
 }
 
