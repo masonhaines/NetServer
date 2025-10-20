@@ -279,6 +279,8 @@ function ReadDataFromFile(data) {
             fileName = path.basename(data);
             // console.log('File data:', fileData);
             console.log("I sent the data");
+            const json = JSON.stringify(fileName);
+            console.log('File data:', json);
             broadcast({
                 type: 'CawfeData',
                 // message: fileName,
@@ -318,9 +320,14 @@ function GiveRequestedFiles() {
         files.forEach(file => {
             console.log(`Sending file: ${file}`);
             ReadDataFromFile(path.join(folder, file));
+            
         });
+
+        // ReadDataFromFile(path.join(folder, files[0])); // only send the first file in the directory for testing
+        
     });
 }
+GiveRequestedFiles();
 
 
 

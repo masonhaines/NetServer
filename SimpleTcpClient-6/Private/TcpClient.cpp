@@ -108,24 +108,27 @@ void UTcpClient::StartPollAsynchronously()
 	}
 
 	UE_LOG(LogTemp, Warning, TEXT("Is going to start polling for file data"));
-
-	Async(EAsyncExecution::Thread, [this]()
+	if(this)
 	{
-		while(bIsConnected)
+		Async(EAsyncExecution::Thread, [this]()
 		{
-
-			if(ClientSocket)
+			while(bIsConnected)
 			{
-				PollSocket();
-				FPlatformProcess::Sleep(0.1); // pause operations inside while loop for .1 second so other ops can run on thread
-				// FGenericPlatformProcess::Sleep() // why does this not work? this makes no sense
+
+				if(ClientSocket)
+				{
+					PollSocket();
+					FPlatformProcess::Sleep(0.01); // pause operations inside while loop for .1 second so other ops can run on thread
+					// FGenericPlatformProcess::Sleep() // why does this not work? this makes no sense
+				}
+
 			}
+				
+			if(!bIsConnected) 	UE_LOG(LogTemp, Warning, TEXT("Stopped polling "));
 
-		}
-		
-		if(!bIsConnected) 	UE_LOG(LogTemp, Warning, TEXT("Stopped polling "));
+		});
+	}
 
-	});
 
 	
 }
@@ -312,28 +315,49 @@ void UTcpClient::PollSocket()
 
 			while(true)
 			{
+				// Check for the start of the delimiter
 				if (!PartialJsonBytes.Contains((uint8)'<') || PartialJsonBytes.Num() < 5) {
 					break; // no chance the delimiter is present yet
 				}
-				
+				// Check for beginning bracket from the json object 
+				int32 StartBraceIndex = PartialJsonBytes.Find((uint8)'{');
+				if (StartBraceIndex == INDEX_NONE)
+				{
+					break;
+				}
 				const int32 DelimiterLength = 5;
 				int32 IndexOfDelimiter = -1;
 
-				const int32 indexOfStartOfDelimiter = PartialJsonBytes.Num() - DelimiterLength;
-				const uint8* LoopData = PartialJsonBytes.GetData();
-				if (indexOfStartOfDelimiter >= 0)
+				const int32 limit = PartialJsonBytes.Num() - DelimiterLength;
+				int32 LastBraceIndex = -1;
+
+				// Begin searching through all the bytes, essentially through the {...}<END>
+				if (limit >= 0)
 				{
-					for (int32 i = 0; i <= indexOfStartOfDelimiter; ++i)
+					for (int32 i = 0; i <= limit; ++i)
 					{
 						// skip until '<'
-						if (LoopData[i] != (uint8)'<') continue;
+						if (PartialJsonBytes[i] != (uint8)'<') continue;
 
 						// verify for  "<END>"
-						if (LoopData[i+1] == (uint8)'E' && LoopData[i+2] == (uint8)'N'
-							&& LoopData[i+3] == (uint8)'D' && LoopData[i+4] == (uint8)'>')
+						if (PartialJsonBytes[i] == (uint8)'<' && PartialJsonBytes[i+1] == (uint8)'E' && PartialJsonBytes[i+2] == (uint8)'N'
+							&& PartialJsonBytes[i+3] == (uint8)'D' && PartialJsonBytes[i+4] == (uint8)'>')
 						{
-							IndexOfDelimiter = i; // start index of "<END>" delim
-							break;
+							// check last non-white-space before <END> is '}'
+							int32 j = i - 1;
+							while (j >= 0 && (PartialJsonBytes[j] == '\r' ||
+											  PartialJsonBytes[j] == '\n' ||
+											  PartialJsonBytes[j] == '\t' ||
+											  PartialJsonBytes[j] == ' '))
+							{
+								--j;
+							}
+							if (j >= 0 && PartialJsonBytes[j] == (uint8)'}')
+							{
+								LastBraceIndex = j;
+								IndexOfDelimiter = i;
+								break; // valid frame end
+							}
 						}
 					}
 
@@ -341,24 +365,33 @@ void UTcpClient::PollSocket()
 					{
 						break;
 					}
+					
 
 						// convert UTF8 to TCHAR
-					FString JsonStringFromBytes = FString(StringCast<TCHAR>(reinterpret_cast<const UTF8CHAR*>(PartialJsonBytes.GetData()),
-					IndexOfDelimiter).Get());
+					if (StartBraceIndex > LastBraceIndex) break;
+					int32 messagelength = LastBraceIndex - StartBraceIndex + 1;
+					if (messagelength <= 0) break;
+
+					FString JsonStringFromBytes = FString(StringCast<TCHAR>(reinterpret_cast<const UTF8CHAR*>
+						(PartialJsonBytes.GetData() + StartBraceIndex),messagelength).Get());
 						// essentially we found a delim so that means a new stream of packets
 						// are coming through the socket and we need to clean out the T array that is holding
 						// the bytes from the previous stream of packets. including the delim itself.
-					int32 messagelength = IndexOfDelimiter;
-					int32 removalCount = messagelength + DelimiterLength;
+					int32 removalCount = IndexOfDelimiter + DelimiterLength;
 
-					if (removalCount <= 0 || removalCount > PartialJsonBytes.Num())
-					{
-						UE_LOG(LogTemp, Error, TEXT("Issue with size of remove Count. T array Partial Json Bytes has been reset "));
+					if (removalCount <= 0 || removalCount > PartialJsonBytes.Num()) {
+						UE_LOG(LogTemp, Error, TEXT("Issue with remove Count. Reset buffer."));
 						PartialJsonBytes.Reset();
 						break;
 					}
 					
-					PartialJsonBytes.RemoveAt(0, removalCount, false);
+					PartialJsonBytes.RemoveAt(0, removalCount);
+					while (PartialJsonBytes.Num()>=5 &&
+						   PartialJsonBytes[0]=='<'&&PartialJsonBytes[1]=='E'&&PartialJsonBytes[2]=='N'&&
+						   PartialJsonBytes[3]=='D'&&PartialJsonBytes[4]=='>')
+					{
+						PartialJsonBytes.RemoveAt(0,5);
+					}
 
 					if (!JsonStringFromBytes.IsEmpty())
 					{
@@ -369,18 +402,39 @@ void UTcpClient::PollSocket()
 			}
 
 			
+
+			
 			FString CompleteJsonStringReadyForParsing;
+
+
+
 			while(QueuedJsonStrings.Dequeue(CompleteJsonStringReadyForParsing)) // returns false once queue is empty 
 			{
-				// if (!CompleteJsonStringReadyForParsing.EndsWith("}") || !CompleteJsonStringReadyForParsing.StartsWith("{"))
-				// {
-				// 	// Trim 1 char from the end until it looks valid, it is adding random chars at the end because of something 
-				// 	while (!CompleteJsonStringReadyForParsing.IsEmpty() &&
-				// 		   (!CompleteJsonStringReadyForParsing.EndsWith("}") || !CompleteJsonStringReadyForParsing.StartsWith("{")))
-				// 	{
-				// 		CompleteJsonStringReadyForParsing.RemoveAt(CompleteJsonStringReadyForParsing.Len() - 1);
-				// 	}
-				// }
+
+				CompleteJsonStringReadyForParsing.ReplaceInline(TEXT("\r"), TEXT(""));
+				CompleteJsonStringReadyForParsing.TrimStartAndEndInline();
+
+				// CompleteJsonStringReadyForParsing.LeftInline(CompleteJsonStringReadyForParsing.Find(TEXT("}")));
+
+				if (!CompleteJsonStringReadyForParsing.Contains(TEXT("{")) || !CompleteJsonStringReadyForParsing.Contains(TEXT("}")))
+				{
+					continue; // not a JSON object; skip
+				}
+				
+				if (!CompleteJsonStringReadyForParsing.EndsWith("}") || !CompleteJsonStringReadyForParsing.StartsWith("{"))
+				{
+					// Trim 1 char from the end until it looks valid, it is adding random chars at the end because of something 
+					while (!CompleteJsonStringReadyForParsing.IsEmpty() &&
+						   (!CompleteJsonStringReadyForParsing.EndsWith("}") || !CompleteJsonStringReadyForParsing.StartsWith("{")))
+					{
+						CompleteJsonStringReadyForParsing.RemoveAt(CompleteJsonStringReadyForParsing.Len() - 1);
+					}
+					if (CompleteJsonStringReadyForParsing.IsEmpty())
+					{
+						continue;
+					}
+
+				}
 
 				// UE_LOG(LogTemp, Warning, TEXT("Dequeued JSON: '%s'"), *CompleteJsonStringReadyForParsing);
 				// GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow,
@@ -488,7 +542,7 @@ int UTcpClient::GetReceivedFileNames(TArray<FString>& OutFileNames)
 		OutFileNames.Add(ArrayOfReceivedFiles[i].SFileName);
 	}
 	
-	return 	sizeof(ArrayOfReceivedFiles.Num());
+	return 	ArrayOfReceivedFiles.Num();
 
 }
 
