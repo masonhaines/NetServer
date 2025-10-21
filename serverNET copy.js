@@ -4,6 +4,7 @@
 const net = require('net');
 const fs = require('fs');
 const path = require("path");
+const { EOF } = require('dns');
 // const { clear } = require('console');
 
 // Storage for connected clients
@@ -14,12 +15,6 @@ const pendingRequests = new Map();
 
 const portNumber = 7777;
 
-function sendJson(socket, obj) {
-  const s = JSON.stringify(obj);
-  if (s.includes("<END>")) throw new Error("JSON contains <END>");
-  return socket.write(s + "<END>", "utf8");
-}
-
 // Broadcast message to all clients except the sender
 function broadcast(message, sender) {
 
@@ -29,12 +24,10 @@ function broadcast(message, sender) {
     // const json = JSON.stringify(message) + '\n';
     clientsArray.forEach(clientSocketElement => {
         if (clientSocketElement !== sender) {
-            sendJson(clientSocketElement, message);
+            clientSocketElement.write(json, 'utf8' );
         }
     });
 }
-
-
 
 
 
@@ -51,7 +44,7 @@ const server = net.createServer((socket) => {
 
     // set encoding to utf8 to handle strings instead of buffers
     // socket is the object representing the connection to the client
-    // socket.setEncoding('utf8');
+    socket.setEncoding('utf8');
 
     // push client to the clients array 
     clientsArray.push(socket);
@@ -63,12 +56,12 @@ const server = net.createServer((socket) => {
     let pendingData = '';
 
 
-    sendJson(socket, {
+    socket.write(JSON.stringify({
         type: 'serverMessage', 
         message: 'Hello from the server',
         timestamp: Date.now()
 
-    });
+    }) + '<END>', 'utf8');
     
     // Handle data
     socket.on('data', (data) => {
@@ -120,14 +113,14 @@ const server = net.createServer((socket) => {
                             console.log(`Client ID: ${clientID.get(socket).username}`);
 
                         }
-
-
-                        sendJson(socket, {
-                            type: 'serverMessage',
-                            message: `Hello, ${parsedMessage.name}! Welcome to my chat server homie!`,
-                            timestamp: Date.now(),
-                            clientID: clientID.get(socket).username
-                        });
+                            
+                        
+                        socket.write(JSON.stringify({
+                        type: 'serverMessage',
+                        message: `Hello, ${parsedMessage.name}! Welcome to my chat server homie!`,
+                        timestamp: Date.now(),
+                        clientID: clientID.get(socket).username
+                        }) + '<END>', 'utf8');
                         break;
                         
                     case 'request': {
@@ -153,11 +146,11 @@ const server = net.createServer((socket) => {
                     }
                         
                     default:
-                        sendJson(socket, {
-                            type: 'error',
-                            message: 'Unknown message type',
-                            timestamp: Date.now()
-                        });
+                        socket.write(JSON.stringify({
+                        type: 'error',
+                        message: 'Unknown message type',
+                        timestamp: Date.now()
+                        }) + '<END>', 'utf8');
                     }
 
 
@@ -249,32 +242,68 @@ process.on('SIGINT', () => {
     return;
 });
 
+// Buffer is just a byte array -------------------------------------------- 
+// length-prefixed frames 
+// a frame is delim that is currently 4 bytes long that tells us how long the body is
+// the body is made up of a header and a payload
+// the header is a json object that tells us about the payload
+// the payload is the actual data we want to send
+// [frameLen][headerLen][header][payload]
+function createFrame(headerObj, payloadBuf) {
+    // 1) Encode header JSON to bytes
+    const headerBuf = Buffer.from(JSON.stringify(headerObj), 'utf8'); // [header]
 
-let fileName = '';
+    // 2) Encode header length as 2 bytes (big-endian)
+    const headerLenBuf = Buffer.alloc(2); // [headerLen]
+    headerLenBuf.writeUInt16BE(headerBuf.length, 0);
 
-function ReadDataFromFile(data) {
-    try{
+    // 3) Frame body = [headerLen][header][payload]
+    const frameBodyBuf = Buffer.concat([headerLenBuf, headerBuf, payloadBuf]); // add payloadBuf at the end
 
-        fs.readFile(data, 'utf8', (err, fileData) => {
-            if (err) {
-                console.error('Error reading file:', err);
-                return;
+    // 4) Encode total body length as 4 bytes (big-endian)
+    const frameLenBuf = Buffer.alloc(4); // [frameLen]
+    frameLenBuf.writeUInt32BE(frameBodyBuf.length, 0);
+
+    // 5) Final frame = [frameLen][frameBody]
+    return Buffer.concat([frameLenBuf, frameBodyBuf]);
+}
+
+
+
+async function WriteDataToSocket(filename) {
+    
+    return new Promise((resolve, reject) => {
+
+        const readStream = fs.createReadStream(filename, {encoding: 'utf8', highWaterMark: 64 * 1024 }); // 64KB chunk size
+        let sequenceNumber = 0;
+
+        readStream.on('data', (chunk) => {
+            const header = {filename, sequenceNumber: sequenceNumber++, EOF: false };
+            let cleanChunk = chunk.replace(/\r/g, ''); // remove carriage return characters
+            const frame = createFrame(header, Buffer.from(cleanChunk, 'utf8'));
+            if (!socket.write(frame)) {
+            readStream.pause();
+            socket.once('drain', () => readStream.resume());
             }
-            const clean = fileData.replace(/\r/g, ''); 
-            fileName = path.basename(data);
-           
-            broadcast({
-                type: 'CawfeData',
-                // message: fileName,
-                sender: 'Server',
-                data: clean,
-                filename: fileName,
-                timestamp: Date.now()
-            });
         });
-    } catch (error) {
-        console.error('Error:', error);
-    }
+
+        readStream.once('end', () => {
+            const header = {filename, sequenceNumber, EOF: true };
+            const frame = createFrame(header, Buffer.alloc(0)); // header-only EOF
+            socket.write(frame, (err) => err ? reject(err) : resolve());
+        });
+
+
+        readStream.on('error', (error) => {
+            console.error('Error reading file:', error);
+            reject(error);
+            return;
+        });
+
+        resolve();
+
+    });
+
 }
 
 // read files from the cawfeData folder every ** seconds and broadcast the data to all connected clients
@@ -282,31 +311,17 @@ function ReadDataFromFile(data) {
 const folder = "E:\\servers\\NodeJS_Net\\NodeJS_NetServer\\data";
 
 
-function GiveRequestedFiles() {
-        fs.readdir(folder, (err, files) => {
-        if (err) {
-            console.error('Error reading directory:', err);
-            return;
-        }
-
-        // console.log(pendingRequests.values().next().value);
+async function GiveRequestedFiles() {
 
 
-        // I dont know why but with iterating through a map you need to put the values first then the keys
-        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map/forEach
-        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map/values
-        // for (let i = 0; i < pendingRequests.size; i++) {
-        //     ReadDataFromFile(path.join(folder, pendingRequests.values().next().value)); // get the value of the first element in the map and pass it to ReadDataFromFile
-        //     pendingRequests.delete(pendingRequests.keys().next().value); // remove the first element in the map
-        // }
-        files.forEach(file => {
-            console.log(`Sending file: ${file}`);
-            ReadDataFromFile(path.join(folder, file));
-            
-        });
+    const files = await fs.promises.readdir(folder);
+    
+    for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+        const file = files[fileIndex];
+        const absoluteFilePath = path.join(folder, file);
+        console.log(`Sending file (${fileIndex + 1}/${files.length}): ${file}`);
+        await WriteDataToSocket(absoluteFilePath);
+    }
 
-        // ReadDataFromFile(path.join(folder, files[0])); // only send the first file in the directory for testing
-        
-    });
+    // WriteDataToSocket(path.join(folder, files[0]));
 }
-// GiveRequestedFiles();
