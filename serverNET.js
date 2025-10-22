@@ -255,26 +255,52 @@ let fileName = '';
 function ReadDataFromFile(data) {
     try{
 
-        fs.readFile(data, 'utf8', (err, fileData) => {
-            if (err) {
-                console.error('Error reading file:', err);
+        fs.readFile(data, 'utf8', (error, fileData) => {
+            if (error) {
+                console.error('Error reading file:', error);
                 return;
             }
+
+            
             const clean = fileData.replace(/\r/g, ''); 
             fileName = path.basename(data);
+            console.log(`Reading file: ${fileName} and here is the data : 
+                ${clean}
+                `);
+            console.log(`has read file: ${fileName} with ${ChunkFileData(clean)} chunks`);
+            rebuildFileFromChunks([clean]); // for testing just pass the whole file as one chunk
            
-            broadcast({
-                type: 'CawfeData',
-                // message: fileName,
-                sender: 'Server',
-                data: clean,
-                filename: fileName,
-                timestamp: Date.now()
-            });
+            // broadcast({
+            //     type: 'CawfeData',
+            //     // message: fileName,
+            //     sender: 'Server',
+            //     data: clean,
+            //     filename: fileName,
+            //     timestamp: Date.now()
+            // });
         });
     } catch (error) {
         console.error('Error:', error);
     }
+}
+
+function ChunkFileData(filedata) {
+    // const chunkSize = 1024; // size of each chunk in bytes
+    const chunkSize = 8192; // size of each chunk in bytes
+    const chunks = [];
+    for (let i = 0; i < filedata.length; i += chunkSize) {
+        const chunk = filedata.slice(i, i + chunkSize);
+        chunks.push(chunk);
+    }
+    return chunks.length;
+}
+
+function rebuildFileFromChunks(chunks) {
+    const fileData = chunks.join('');
+    console.log(`Rebuilt file data: 
+        ${fileData}
+        `); 
+    // return fileData;
 }
 
 // read files from the cawfeData folder every ** seconds and broadcast the data to all connected clients
@@ -299,14 +325,14 @@ function GiveRequestedFiles() {
         //     ReadDataFromFile(path.join(folder, pendingRequests.values().next().value)); // get the value of the first element in the map and pass it to ReadDataFromFile
         //     pendingRequests.delete(pendingRequests.keys().next().value); // remove the first element in the map
         // }
-        files.forEach(file => {
-            console.log(`Sending file: ${file}`);
-            ReadDataFromFile(path.join(folder, file));
+        // files.forEach(file => {
+        //     console.log(`Sending file: ${file}`);
+        //     ReadDataFromFile(path.join(folder, file));
             
-        });
+        // });
 
-        // ReadDataFromFile(path.join(folder, files[0])); // only send the first file in the directory for testing
+        ReadDataFromFile(path.join(folder, files[1])); // only send the second file in the directory for testing, it is the smallest file and most diverse
         
     });
 }
-// GiveRequestedFiles();
+GiveRequestedFiles();
