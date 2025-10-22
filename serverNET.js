@@ -264,20 +264,20 @@ function ReadDataFromFile(data) {
             
             const clean = fileData.replace(/\r/g, ''); 
             fileName = path.basename(data);
-            console.log(`Reading file: ${fileName} and here is the data : 
-                ${clean}
-                `);
-            console.log(`has read file: ${fileName} with ${ChunkFileData(clean)} chunks`);
-            rebuildFileFromChunks([clean]); // for testing just pass the whole file as one chunk
+            // console.log(`Reading file: ${fileName} and here is the data : 
+            //     ${clean}
+            //     `);
+            // console.log(`has read file: ${fileName} with ${ChunkFileData(clean)} chunks`);
+            // rebuildFileFromChunks([clean]); // for testing just pass the whole file as one chunk
            
-            // broadcast({
-            //     type: 'CawfeData',
-            //     // message: fileName,
-            //     sender: 'Server',
-            //     data: clean,
-            //     filename: fileName,
-            //     timestamp: Date.now()
-            // });
+            broadcast({
+                type: 'CawfeData',
+                // message: fileName,
+                sender: 'Server',
+                data: clean,
+                filename: fileName,
+                timestamp: Date.now()
+            });
         });
     } catch (error) {
         console.error('Error:', error);
