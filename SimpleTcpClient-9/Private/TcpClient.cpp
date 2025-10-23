@@ -254,6 +254,8 @@ void UTcpClient::RequestData()
 		Convert.Length(), 
 		BytesSent
 	);
+
+	// I am thinking of clearing the FileInfromation array after this since the data should already be read.
 }
 
 
@@ -377,17 +379,17 @@ void UTcpClient::PollSocket()
             // FString JsonStringFromBytes = FString(StringCast<TCHAR>
             //     (reinterpret_cast<const UTF8CHAR*>(Frame.GetData()), Framelength).Get());
 
-			// Convert UTF-8 bytes to FString
-			// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/Internationalization/FUTF8ToTCHAR
-			// reinterpret cast is used to treat the byte data as ANSI characters
+        	// Convert UTF-8 bytes to FString
+        	// https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/Internationalization/FUTF8ToTCHAR
+        	// reinterpret cast is used to treat the byte data as ANSI characters
         	const ANSICHAR* Utf8Ptr = reinterpret_cast<const ANSICHAR*>(Frame.GetData());
         	FUTF8ToTCHAR Converter(Utf8Ptr, Framelength); // create a Utf8ToTchar object, - converts utf8 to tchar - , https://dev.epicgames.com/documentation/en-us/unreal-engine/character-encoding-in-unreal-engine
         	const FString JsonStringFromBytes(Converter.Length(), Converter.Get()); // create a new string with string constructor that takes length and pointer to tchar data
 
-			// Alternative method using StringCast, is mainly a test to see if this works better
-			//https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/StringCast
-			// const UTF8CHAR* utf8 = reinterpret_cast<const UTF8CHAR*>(Frame.GetData()); // "If a conversion from UTF-8 is desired, the pointer should be cast to UTF8CHAR* before being passed to StringCast."
-			// FString JsonStringFromBytes = FString(StringCast<TCHAR>(utf8, Framelength).Get());
+        	// Alternative method using StringCast, is mainly a test to see if this works better
+        	//https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/StringCast
+        	// const UTF8CHAR* utf8 = reinterpret_cast<const UTF8CHAR*>(Frame.GetData()); // "If a conversion from UTF-8 is desired, the pointer should be cast to UTF8CHAR* before being passed to StringCast."
+        	// FString JsonStringFromBytes = FString(StringCast<TCHAR>(utf8, Framelength).Get());
 
 
 			// Parse the JSON string
@@ -469,9 +471,12 @@ void UTcpClient::AddFileEntry(const FString& Filename, const FString& Data)
 	// TempFileInformation.SFileName = Filename;
 	// TempFileInformation.SData = Data;
 	ArrayOfReceivedFiles.Add(TempFileInformation);
-	UE_LOG(LogTemp, Error, TEXT("done add file entry."));
+	UE_LOG(LogTemp, Display, TEXT("done add file entry."));
 
 }
+
+
+// get received file data and dequeue it from the array
 
 bool UTcpClient::GetFileData(const FString& TargetFileName, FString& OutData)
 {
@@ -481,6 +486,11 @@ bool UTcpClient::GetFileData(const FString& TargetFileName, FString& OutData)
 		if (ArrayOfReceivedFiles[i].SFileName == TargetFileName)
 		{
 			OutData = ArrayOfReceivedFiles[i].SData;
+
+			static uint64 CallId=0; const uint64 id=++CallId;
+			UE_LOG(LogTemp,Display,TEXT(" request: %s (count=%d)"),
+				   id,*TargetFileName,ArrayOfReceivedFiles.Num());
+			// UE_LOG(LogTemp, Display, TEXT("File data read from %s"), *OutData);
 			ArrayOfReceivedFiles.RemoveAt(i);
 			UE_LOG(LogTemp, Display, TEXT("Dequeued: %s (left=%d)"),
 			*TargetFileName, ArrayOfReceivedFiles.Num());
@@ -494,14 +504,21 @@ bool UTcpClient::GetFileData(const FString& TargetFileName, FString& OutData)
 	return false;
 }
 
+
 int UTcpClient::GetReceivedFileNames(TArray<FString>& OutFileNames)
 {
 	OutFileNames.Reset();
-	if (ArrayOfReceivedFiles.IsEmpty()) return 0;
+	OutFileNames.Reserve(ArrayOfReceivedFiles.Num());
+	// if (ArrayOfReceivedFiles.IsEmpty()) return 0;
 
-	for (int32 i = 0; i < ArrayOfReceivedFiles.Num(); i++)
+	// for (int32 i = 0; i < ArrayOfReceivedFiles.Num(); i++)
+	// {
+	// 	OutFileNames.Add(ArrayOfReceivedFiles[i].SFileName);
+	// }
+	// just learned about these loops, fun. Called range based loops
+	for(const auto& file: ArrayOfReceivedFiles)
 	{
-		OutFileNames.Add(ArrayOfReceivedFiles[i].SFileName);
+		OutFileNames.Add(file.SFileName);
 	}
 	
 	return 	ArrayOfReceivedFiles.Num();

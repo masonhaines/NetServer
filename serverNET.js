@@ -325,13 +325,13 @@ function GiveRequestedFiles() {
         //     ReadDataFromFile(path.join(folder, pendingRequests.values().next().value)); // get the value of the first element in the map and pass it to ReadDataFromFile
         //     pendingRequests.delete(pendingRequests.keys().next().value); // remove the first element in the map
         // }
-        // files.forEach(file => {
-        //     console.log(`Sending file: ${file}`);
-        //     ReadDataFromFile(path.join(folder, file));
+        files.forEach(file => {
+            console.log(`Sending file: ${file}`);
+            ReadDataFromFile(path.join(folder, file));
             
-        // });
+        });
 
-        ReadDataFromFile(path.join(folder, files[1])); // only send the second file in the directory for testing, it is the smallest file and most diverse
+        // ReadDataFromFile(path.join(folder, files[0])); // only send the second file in the directory for testing, it is the smallest file and most diverse
         
     });
 }
