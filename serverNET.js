@@ -15,23 +15,43 @@ const pendingRequests = new Map();
 const portNumber = 7777;
 
 function sendJson(socket, obj) {
-  const s = JSON.stringify(obj);
-  if (s.includes("<END>")) throw new Error("JSON contains <END>");
-  return socket.write(s + "<END>", "utf8");
+
+    return new Promise((resolve, reject) => {
+
+        const stringy = JSON.stringify(obj);
+        if (stringy.includes("<END>")) {
+            return reject(new Error("JSON contains <END>"));
+            // throw new Error("JSON contains <END>");
+        }
+        const writeResult = socket.write(stringy + "<END>", "utf8", resolve);
+
+        if (!writeResult) {
+            socket.once('drain', () => {
+                resolve();
+            });
+        }
+
+    });
 }
 
 // Broadcast message to all clients except the sender
-function broadcast(message, sender) {
+async function broadcast(message, sender) {
 
-    // clientSocketElement is just the parameter name for each element in the array
-    // Convert message to JSON and append newline
-    const json = JSON.stringify(message) + "<END>";
-    // const json = JSON.stringify(message) + '\n';
-    clientsArray.forEach(clientSocketElement => {
-        if (clientSocketElement !== sender) {
-            sendJson(clientSocketElement, message);
+        // clientSocketElement is just the parameter name for each element in the array
+        // Convert message to JSON and append newline
+        try {
+        
+            const json = JSON.stringify(message) + "<END>";
+            
+            for (const clientSocketElement of clientsArray) {
+                if (clientSocketElement !== sender) {
+                    await sendJson(clientSocketElement, json);
+                }
+            }
+
+        } catch (error) {
+            console.error('Error broadcasting message:', error);
         }
-    });
 }
 
 
@@ -253,11 +273,12 @@ process.on('SIGINT', () => {
 let fileName = '';
 
 function ReadDataFromFile(data) {
-    try{
+    return new Promise((resolve, reject) => {
 
-        fs.readFile(data, 'utf8', (error, fileData) => {
+        fs.readFile(data, 'utf8', async (error, fileData) => {
             if (error) {
                 console.error('Error reading file:', error);
+                reject(error);
                 return;
             }
 
@@ -270,7 +291,7 @@ function ReadDataFromFile(data) {
             // console.log(`has read file: ${fileName} with ${ChunkFileData(clean)} chunks`);
             // rebuildFileFromChunks([clean]); // for testing just pass the whole file as one chunk
            
-            broadcast({
+            await broadcast({
                 type: 'CawfeData',
                 // message: fileName,
                 sender: 'Server',
@@ -278,12 +299,46 @@ function ReadDataFromFile(data) {
                 filename: fileName,
                 timestamp: Date.now()
             });
+
+            resolve();
         });
-    } catch (error) {
-        console.error('Error:', error);
-    }
+
+        
+    });
 }
 
+
+
+
+
+
+// read files from the cawfeData folder every ** seconds and broadcast the data to all connected clients
+// const folder = "C:\\Users\\demo\\servers\\NetServer\\cawfeData";
+const folder = "E:\\servers\\NodeJS_Net\\NodeJS_NetServer\\data";
+
+
+async function GiveRequestedFiles() {
+
+    try {
+        const filesInFolder = await fs.promises.readdir(folder);
+
+        for (const file of filesInFolder) {
+            console.log(`Sending file: ${file}`);
+            await ReadDataFromFile(path.join(folder, file));
+            // ReadDataFromFile(path.join(folder, files[0])); // only send the second file in the directory for testing, it is the smallest file and most diverse
+        }
+        
+    } catch (error) {
+        console.error('Error reading directory:', error);
+    }
+   
+}
+// GiveRequestedFiles();  //// ----------------------------------------------- comment me out to stop sending files on server start ----------------------------------------------- //
+
+
+
+
+// ************************************************************ this is for testing file chunking and rebuilding files from chunks ************************************************************//
 function ChunkFileData(filedata) {
     // const chunkSize = 1024; // size of each chunk in bytes
     const chunkSize = 8192; // size of each chunk in bytes
@@ -303,36 +358,5 @@ function rebuildFileFromChunks(chunks) {
     // return fileData;
 }
 
-// read files from the cawfeData folder every ** seconds and broadcast the data to all connected clients
-// const folder = "C:\\Users\\demo\\servers\\NetServer\\cawfeData";
-const folder = "E:\\servers\\NodeJS_Net\\NodeJS_NetServer\\data";
 
-
-function GiveRequestedFiles() {
-        fs.readdir(folder, (err, files) => {
-        if (err) {
-            console.error('Error reading directory:', err);
-            return;
-        }
-
-        // console.log(pendingRequests.values().next().value);
-
-
-        // I dont know why but with iterating through a map you need to put the values first then the keys
-        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map/forEach
-        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map/values
-        // for (let i = 0; i < pendingRequests.size; i++) {
-        //     ReadDataFromFile(path.join(folder, pendingRequests.values().next().value)); // get the value of the first element in the map and pass it to ReadDataFromFile
-        //     pendingRequests.delete(pendingRequests.keys().next().value); // remove the first element in the map
-        // }
-        files.forEach(file => {
-            console.log(`Sending file: ${file}`);
-            ReadDataFromFile(path.join(folder, file));
-            
-        });
-
-        // ReadDataFromFile(path.join(folder, files[0])); // only send the second file in the directory for testing, it is the smallest file and most diverse
-        
-    });
-}
-GiveRequestedFiles();
+// ***********************************************************************************************************************//
