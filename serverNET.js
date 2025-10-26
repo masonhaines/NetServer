@@ -41,11 +41,11 @@ async function broadcast(message, sender) {
         // Convert message to JSON and append newline
         try {
         
-            const json = JSON.stringify(message) + "<END>";
+            // const json = JSON.stringify(message) + "<END>";
             
             for (const clientSocketElement of clientsArray) {
                 if (clientSocketElement !== sender) {
-                    await sendJson(clientSocketElement, json);
+                    await sendJson(clientSocketElement, message);
                 }
             }
 
