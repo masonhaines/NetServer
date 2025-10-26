@@ -551,15 +551,19 @@ void UTcpClient::RunAsyncwrapper()
 		AsyncTask(ENamedThreads::GameThread, [this]()
 		{
 			OnAsyncEvent.Broadcast();
+			OnAsyncEventCompleted.Broadcast();
+
+			OnAsyncEvent.Clear();
+			OnAsyncEventCompleted.Clear();
 		});
 
 		FPlatformProcess::Sleep(.05f); 
-
-		// after a short pause, run the completed event on the game thread
-		AsyncTask(ENamedThreads::GameThread, [this]()
-		{
-			OnAsyncEventCompleted.Broadcast();
-		});
+		//
+		// // after a short pause, run the completed event on the game thread
+		// AsyncTask(ENamedThreads::GameThread, [this]()
+		// {
+		// 	OnAsyncEventCompleted.Broadcast();
+		// });
 	});
 }
 
