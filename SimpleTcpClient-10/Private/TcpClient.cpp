@@ -501,6 +501,7 @@ bool UTcpClient::GetFileData(const FString& TargetFileName, FString& OutData)
 		if (ArrayOfReceivedFiles[i].SFileName == TargetFileName)
 		{
 			OutData = ArrayOfReceivedFiles[i].SData;
+			
 			UE_LOG(LogTemp, Display, TEXT("Hit: %s (before remove count=%d)"),
 	   *TargetFileName, ArrayOfReceivedFiles.Num());
 			ArrayOfReceivedFiles.RemoveAt(i);
@@ -565,6 +566,35 @@ void UTcpClient::RunAsyncwrapper()
 		// 	OnAsyncEventCompleted.Broadcast();
 		// });
 	});
+}
+
+TArray<FString> UTcpClient::DataStringToArray(FString Data)
+{
+	TArray<FString> Result;
+	TArray<TCHAR> TempCharacterArray = Data.GetCharArray();
+
+	if (Data.IsEmpty()) return Result;
+	
+	int32 StartingIndexOfString = 0;
+		
+	for (int32 i = 0; i < Data.Len(); i++)
+	{
+		if (FChar::IsWhitespace(TempCharacterArray[i]) || TempCharacterArray[i] == TEXT('\0'))
+		{
+			if (i > StartingIndexOfString)
+			{
+				Result.Add(Data.Mid(StartingIndexOfString, i - StartingIndexOfString));
+				StartingIndexOfString = i++;
+			}
+			else if (i == StartingIndexOfString)
+			{
+				StartingIndexOfString = i++;
+			}
+		}
+	}
+	
+	
+	return Result;
 }
 
 // has pending data -> allocate buffer -> receive -> convert to f string

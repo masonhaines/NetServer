@@ -65,7 +65,7 @@ public:
 	UFUNCTION()
 	void AddFileEntry(const FString& Filename, const FString& Data);
 
-	UFUNCTION(BlueprintPure, Category = "TcpClient")
+	UFUNCTION(BlueprintCallable, Category = "TcpClient")
 	bool GetFileData(const FString& TargetFileName, FString& OutData);
 
 	UFUNCTION(BlueprintCallable, Category = "TcpClient")
@@ -88,6 +88,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "ASyncFunctions")
 	void RunAsyncwrapper();
+
+	UFUNCTION(BlueprintCallable, Category = "TcpClient")
+	TArray<FString> DataStringToArray(FString Data);
 
 
 
