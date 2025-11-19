@@ -568,10 +568,12 @@ void UTcpClient::RunAsyncwrapper()
 	});
 }
 
+// tokenizing data from large string into array of strings
 TArray<FString> UTcpClient::DataStringToArray(FString Data)
 {
 	TArray<FString> Result;
-	TArray<TCHAR> TempCharacterArray = Data.GetCharArray();
+	Result.Reserve(Result.Num());
+	
 
 	if (Data.IsEmpty()) return Result;
 	
@@ -579,20 +581,66 @@ TArray<FString> UTcpClient::DataStringToArray(FString Data)
 		
 	for (int32 i = 0; i < Data.Len(); i++)
 	{
-		if (FChar::IsWhitespace(TempCharacterArray[i]) || TempCharacterArray[i] == TEXT('\0'))
+		if (FChar::IsWhitespace(Data[i]) || Data[i] == TEXT('\0'))
 		{
+			// if the current i is greater than the starting index is a valid value and can be added to the array of strings
 			if (i > StartingIndexOfString)
 			{
-				Result.Add(Data.Mid(StartingIndexOfString, i - StartingIndexOfString));
-				StartingIndexOfString = i++;
+				Result.Add(Data.Mid(StartingIndexOfString, i - StartingIndexOfString)); // example: start = 0 => hello_world => from h to o is 5-0 total char, new starting index is 6
+				StartingIndexOfString = i + 1;
 			}
-			else if (i == StartingIndexOfString)
+			// if the current i is equal to the starting index it means that there is another white space
+			// and there is not a valid value so the starting index needs to be bumped
+			// account for multiple spaces or a lingering space
+			else if (i == StartingIndexOfString) // check for double white spaces
 			{
 				StartingIndexOfString = i++;
 			}
 		}
 	}
+		
 	
+	
+	int32 EndingIndexOfString = Data.Len() - 1;
+
+	// loop for new ending index, as soon as a char is found break
+	for (int32 i = Data.Len() - 1; i >= 0; i--)
+	{
+		if (FChar::IsWhitespace(Data[i]) || Data[i] == TEXT('\0'))
+		{
+			EndingIndexOfString = i - 1;
+		}
+		else
+		{
+			break; // Found non-whitespace, stop skipping
+		}
+	}
+	// add final string to Result array of strings. "lingering string"
+	if (StartingIndexOfString <= EndingIndexOfString)
+	{
+		Result.Add(Data.Mid(StartingIndexOfString, EndingIndexOfString - StartingIndexOfString + 1));
+	}
+
+	// // Collect data at the end of data string 
+	// bool bWS_found = false;
+	// for (int32 i = Data.Len(); i - 1 > 0 ; i--)
+	// {
+	// 	if (!bWS_found && (FChar::IsWhitespace(Data[i]) || Data[i] == TEXT('\0'))) // if white space decrement the ending index of the last string 
+	// 	{
+	// 		EndingIndexOfString = i - 1;
+	// 	}
+	// 	// if white space is found and THEN characters, then white space again add
+	// 	else if (bWS_found&& (FChar::IsWhitespace(Data[i]) || Data[i] == TEXT('\0'))) // if white space decrement the ending index of the last string  
+	// 	{
+	// 		// current index is White space 
+	// 		Result.Add(Data.Mid(i + 1, EndingIndexOfString - i));
+	// 		break;
+	// 	}
+	// 	else // this will only be run AFTER finding all the white space the end of the string 
+	// 	{
+	// 		bWS_found = true; // if no more white space is found immediately flag
+	// 	}
+	// }
 	
 	return Result;
 }
